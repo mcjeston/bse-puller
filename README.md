@@ -5,7 +5,9 @@ Windows desktop app for exporting filtered BILL Spend and Expense transactions i
 ## Download
 
 - Direct installer download:
-  - [BsePullerSetup.exe](https://github.com/mcjeston/bse-puller/raw/main/dist/BsePullerSetup.exe)
+  - [BsePullerSetup.exe](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.25.1/BsePullerSetup.exe)
+- Release page:
+  - [BSE Puller Installer 2026-03-25](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.25.1)
 - GitHub repository:
   - [mcjeston/bse-puller](https://github.com/mcjeston/bse-puller)
 
