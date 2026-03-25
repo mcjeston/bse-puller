@@ -2,6 +2,13 @@
 
 Windows desktop app for exporting filtered BILL Spend and Expense transactions into the accounting CSV layout used by the team.
 
+## Download
+
+- Direct installer download:
+  - [BsePullerSetup.exe](https://github.com/mcjeston/bse-puller/raw/main/dist/BsePullerSetup.exe)
+- GitHub repository:
+  - [mcjeston/bse-puller](https://github.com/mcjeston/bse-puller)
+
 ## Current behavior
 
 - Opens as a Windows GUI.
