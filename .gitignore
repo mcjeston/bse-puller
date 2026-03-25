@@ -1,0 +1,16 @@
+.appdata/
+.localappdata/
+.dotnet/
+obj/
+bin/
+snapshots/
+
+dist/*
+!dist/.gitkeep
+!dist/BsePullerSetup.exe
+
+*.user
+*.suo
+*.log
+
+CSV exports/
