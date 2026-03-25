@@ -1,85 +1,67 @@
 # BSE Puller
 
-Windows desktop app for exporting filtered BILL Spend and Expense transactions into the accounting CSV layout used by the team.
+[Download the latest installer](https://github.com/mcjeston/bse-puller/raw/main/dist/BsePullerSetup.exe)
 
-## Download
+Windows desktop app for pulling approved BILL Spend and Expense transactions into the accounting CSV layout used by the team.
 
-- Direct installer download:
-  - [BsePullerSetup.exe](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.25.1/BsePullerSetup.exe)
-- Release page:
-  - [BSE Puller Installer 2026-03-25](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.25.1)
-- GitHub repository:
-  - [mcjeston/bse-puller](https://github.com/mcjeston/bse-puller)
+## What the app does
 
-## Current behavior
-
-- Opens as a Windows GUI.
-- Calls `GET /v3/spend/transactions`.
-- Uses this API-side filter:
+- Calls `GET /v3/spend/transactions`
+- Uses this BILL filter in the API request:
   - `type:ne:DECLINE,syncStatus:eq:NOT_SYNCED,complete:eq:true`
 - Applies these local checks after the API response:
   - `accountingIntegrationTransactions` must be empty
   - `reviewers` must include `ADMIN` with `APPROVED`
-  - duplicate `id` values are skipped
-  - GL account merge conflicts are logged and excluded from later sync steps
-- Saves accounting-formatted CSV files to the local `CSV exports` folder beside the app.
-- Keeps the newest 4 older CSV exports as backups.
-- Opens the CSV automatically after saving.
-- Shows a reminder dialog with the transaction count and charge total so the user can mark those transactions as synced manually in BILL.
+  - duplicate `id` values are removed
+  - conflicting GL account values are logged and excluded from any later sync-eligible set
+- Converts the results into the team’s accounting CSV column layout
+- Saves exports into the local `CSV exports` folder beside the app
+- Keeps the newest 4 previous CSV exports as backups
+- Opens the CSV automatically after saving
+- Shows a final reminder with transaction count and amount total so the user can mark those transactions as synced manually in BILL Spend and Expense
 
-## API token
+## Installer and user settings
 
-- The API token is no longer stored in source code.
-- Each Windows user has their own token stored here:
+- Installer file:
+  - `dist\BsePullerSetup.exe`
+- Install location:
+  - `%LocalAppData%\Programs\BsePuller`
+- Per-user settings location:
+  - `%LocalAppData%\BsePuller\settings.json`
+- The installer asks for the BILL API token during setup
+- If the token is not already saved, the app will ask for it on first pull
 
-```text
-%LocalAppData%\BsePuller\settings.json
-```
+## In-app actions
 
-- The installer prompts for the token during install.
-- If the app is launched without a saved token, it prompts the user on first pull and saves it for that Windows user.
+- `Pull Transactions` runs the export
+- `Previous Exports` opens the local `CSV exports` folder
+- `Reset API Key` removes the saved BILL API token for the current Windows user
+- `Uninstall` removes the installed app, Start Menu shortcut, saved user settings, and installed export folder
 
-## Build the app
+## Build locally
 
-Use the local SDK in this folder:
+Use the local .NET SDK included in this folder:
 
 ```powershell
-.\.dotnet\dotnet.exe build BsePuller.csproj -c Release
-.\.dotnet\dotnet.exe publish BsePuller.csproj -c Release --no-restore
+.\.dotnet\dotnet.exe build .\BsePuller.csproj -c Release
+.\.dotnet\dotnet.exe publish .\BsePuller.csproj -c Release -o .\bin\Release\net8.0-windows\publish
 ```
 
-Published app location:
+Published app:
 
 ```text
 bin\Release\net8.0-windows\publish\BsePuller.exe
 ```
 
-## Build the installer
-
-This project includes a simple per-user installer based on Windows `IExpress`.
-
-Build it with:
+Build installer:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\installer\Build-Installer.ps1
+powershell -ExecutionPolicy Bypass -File .\installer\Build-Installer.ps1 -SkipPublish
 ```
-
-Installer output:
-
-```text
-dist\BsePullerSetup.exe
-```
-
-Installer behavior:
-
-- prompts for the BILL API token during install
-- installs the app to `%LocalAppData%\Programs\BsePuller`
-- writes the token to `%LocalAppData%\BsePuller\settings.json`
-- creates a Start Menu shortcut for `BSE Puller`
 
 ## Snapshots
 
-Saved snapshots of working builds are in:
+Working snapshots are stored in:
 
 ```text
 snapshots

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Globalization;
+using System.Text;
 
 namespace BsePuller;
 
@@ -8,6 +9,8 @@ internal sealed class MainForm : Form
 {
     private readonly Button _pullButton;
     private readonly Button _openExportsButton;
+    private readonly Button _resetApiKeyButton;
+    private readonly Button _uninstallButton;
     private readonly TextBox _logBox;
     private readonly Label _statusLabel;
     private readonly Label _subtitleLabel;
@@ -16,8 +19,8 @@ internal sealed class MainForm : Form
     {
         Text = "BSE Puller";
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(780, 540);
-        MinimumSize = new Size(740, 520);
+        ClientSize = new Size(940, 575);
+        MinimumSize = new Size(940, 555);
         Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point);
         BackColor = Color.FromArgb(244, 246, 248);
 
@@ -46,6 +49,32 @@ internal sealed class MainForm : Form
         };
         _openExportsButton.FlatAppearance.BorderColor = Color.FromArgb(210, 214, 220);
         _openExportsButton.Click += (_, _) => OpenExportsFolder();
+
+        _resetApiKeyButton = new Button
+        {
+            Text = "Reset API Key",
+            Size = new Size(118, 32),
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(60, 64, 70),
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 8.75F, FontStyle.Regular, GraphicsUnit.Point),
+            Cursor = Cursors.Hand
+        };
+        _resetApiKeyButton.FlatAppearance.BorderColor = Color.FromArgb(210, 214, 220);
+        _resetApiKeyButton.Click += (_, _) => ResetApiKey();
+
+        _uninstallButton = new Button
+        {
+            Text = "Uninstall",
+            Size = new Size(96, 32),
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(157, 45, 45),
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 8.75F, FontStyle.Regular, GraphicsUnit.Point),
+            Cursor = Cursors.Hand
+        };
+        _uninstallButton.FlatAppearance.BorderColor = Color.FromArgb(229, 190, 190);
+        _uninstallButton.Click += (_, _) => StartUninstall();
 
         _statusLabel = new Label
         {
@@ -102,7 +131,7 @@ internal sealed class MainForm : Form
             BackColor = Color.Transparent
         };
         rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 116F));
-        rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 94F));
+        rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 166F));
         rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
         var headerCard = CreateCardPanel();
@@ -147,11 +176,13 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            RowCount = 1,
+            RowCount = 2,
             BackColor = Color.Transparent
         };
         actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        actionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        actionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         var buttonFlow = new FlowLayoutPanel
         {
@@ -166,8 +197,23 @@ internal sealed class MainForm : Form
         buttonFlow.Controls.Add(_pullButton);
         buttonFlow.Controls.Add(_openExportsButton);
 
+        var utilityFlow = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Dock = DockStyle.Left,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0, 10, 0, 0)
+        };
+        utilityFlow.Controls.Add(_resetApiKeyButton);
+        utilityFlow.Controls.Add(_uninstallButton);
+
         actionLayout.Controls.Add(buttonFlow, 0, 0);
         actionLayout.Controls.Add(_statusLabel, 1, 0);
+        actionLayout.Controls.Add(utilityFlow, 0, 1);
+        actionLayout.SetColumnSpan(utilityFlow, 2);
         actionCard.Controls.Add(actionLayout);
 
         var activityCard = CreateCardPanel();
@@ -237,6 +283,8 @@ internal sealed class MainForm : Form
     {
         _pullButton.Enabled = false;
         _openExportsButton.Enabled = false;
+        _resetApiKeyButton.Enabled = false;
+        _uninstallButton.Enabled = false;
         var originalText = _pullButton.Text;
         _pullButton.Text = "Pulling...";
         _statusLabel.Text = "Contacting BILL and preparing the export.";
@@ -308,6 +356,8 @@ internal sealed class MainForm : Form
             _pullButton.Text = originalText;
             _pullButton.Enabled = true;
             _openExportsButton.Enabled = true;
+            _resetApiKeyButton.Enabled = true;
+            _uninstallButton.Enabled = true;
         }
     }
 
@@ -323,6 +373,91 @@ internal sealed class MainForm : Form
         });
 
         AppendLog($"Opened exports folder: {exportsFolder}");
+    }
+
+    private void ResetApiKey()
+    {
+        var confirm = MessageBox.Show(
+            this,
+            "This will remove the saved BILL API token for this Windows user. The next pull will prompt for a new token.",
+            "Reset API key?",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question,
+            MessageBoxDefaultButton.Button2);
+
+        if (confirm != DialogResult.Yes)
+        {
+            return;
+        }
+
+        BseSettings.ClearApiToken();
+        AppendLog("Removed the saved BILL API token for this Windows user.");
+        _statusLabel.Text = "API token removed. The next pull will prompt for a new token.";
+
+        MessageBox.Show(
+            this,
+            "The saved BILL API token was removed. The next pull will ask for a new token.",
+            "API token reset",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
+    }
+
+    private void StartUninstall()
+    {
+        if (!BseSettings.IsRunningInstalledCopy())
+        {
+            MessageBox.Show(
+                this,
+                $"Uninstall is only available from the installed copy in:{Environment.NewLine}{BseSettings.GetInstalledAppFolder()}",
+                "Uninstall unavailable",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            this,
+            "This will close BSE Puller and remove the installed app, the Start menu shortcut, the saved API token for this Windows user, and the local CSV exports folder. Continue?",
+            "Uninstall BSE Puller?",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning,
+            MessageBoxDefaultButton.Button2);
+
+        if (confirm != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            var helperPath = Path.Combine(
+                Path.GetTempPath(),
+                $"BsePuller-Uninstall-{Guid.NewGuid():N}.ps1");
+
+            File.WriteAllText(helperPath, BuildUninstallScript(helperPath), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{helperPath}\"",
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+
+            AppendLog("Started the uninstall helper. Closing BSE Puller.");
+            _statusLabel.Text = "Closing for uninstall...";
+            Close();
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Error: could not start uninstall helper. {ex.Message}");
+            MessageBox.Show(
+                this,
+                $"Could not start the uninstall helper.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
+                "Uninstall failed",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
     }
 
     private bool EnsureApiTokenConfigured()
@@ -537,6 +672,53 @@ internal sealed class MainForm : Form
         }
 
         _logBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}");
+    }
+
+    private string BuildUninstallScript(string helperPath)
+    {
+        var installDir = BseSettings.GetInstalledAppFolder();
+        var shortcutFolder = BseSettings.GetStartMenuShortcutFolder();
+        var settingsFolder = BseSettings.GetUserSettingsFolder();
+        var currentProcessId = Environment.ProcessId;
+        var lines = new[]
+        {
+            "$ErrorActionPreference = 'SilentlyContinue'",
+            "Add-Type -AssemblyName System.Windows.Forms",
+            string.Empty,
+            $"$processId = {currentProcessId}",
+            $"$installDir = '{EscapePowerShellString(installDir)}'",
+            $"$shortcutFolder = '{EscapePowerShellString(shortcutFolder)}'",
+            $"$settingsFolder = '{EscapePowerShellString(settingsFolder)}'",
+            $"$helperPath = '{EscapePowerShellString(helperPath)}'",
+            string.Empty,
+            "try {",
+            "    Wait-Process -Id $processId",
+            "} catch {",
+            "}",
+            string.Empty,
+            "Start-Sleep -Seconds 1",
+            string.Empty,
+            "foreach($path in @($installDir, $shortcutFolder, $settingsFolder)) {",
+            "    if (Test-Path $path) {",
+            "        Remove-Item -Path $path -Recurse -Force",
+            "    }",
+            "}",
+            string.Empty,
+            "[System.Windows.Forms.MessageBox]::Show(",
+            "    'BSE Puller was uninstalled for this Windows user.',",
+            "    'Uninstall complete',",
+            "    [System.Windows.Forms.MessageBoxButtons]::OK,",
+            "    [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null",
+            string.Empty,
+            "Start-Process -FilePath 'cmd.exe' -ArgumentList \"/c ping 127.0.0.1 -n 2 > nul & del `\"$helperPath`\"\" -WindowStyle Hidden"
+        };
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string EscapePowerShellString(string value)
+    {
+        return value.Replace("'", "''");
     }
 
     private static RoundedPanel CreateCardPanel()

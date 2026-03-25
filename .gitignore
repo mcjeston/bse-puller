@@ -1,6 +1,9 @@
 .appdata/
 .localappdata/
 .dotnet/
+.dotnet-cli/
+.nuget/
+NuGet/
 obj/
 bin/
 snapshots/

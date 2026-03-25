@@ -25,6 +25,21 @@ internal static class BseSettings
         return Path.Combine(AppContext.BaseDirectory, "CSV exports");
     }
 
+    public static string GetInstalledAppFolder()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Programs",
+            "BsePuller");
+    }
+
+    public static string GetStartMenuShortcutFolder()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.Programs),
+            "BSE Puller");
+    }
+
     public static string GetUserSettingsFolder()
     {
         return Path.Combine(
@@ -50,9 +65,34 @@ internal static class BseSettings
         _cachedSettings = settings;
     }
 
+    public static void ClearApiToken()
+    {
+        var settingsPath = GetUserSettingsPath();
+        if (File.Exists(settingsPath))
+        {
+            File.Delete(settingsPath);
+        }
+
+        var settingsFolder = GetUserSettingsFolder();
+        if (Directory.Exists(settingsFolder) &&
+            !Directory.EnumerateFileSystemEntries(settingsFolder).Any())
+        {
+            Directory.Delete(settingsFolder);
+        }
+
+        _cachedSettings = new AppUserSettings();
+    }
+
     public static void Reload()
     {
         _cachedSettings = null;
+    }
+
+    public static bool IsRunningInstalledCopy()
+    {
+        var currentDirectory = NormalizePath(AppContext.BaseDirectory);
+        var installedDirectory = NormalizePath(GetInstalledAppFolder());
+        return string.Equals(currentDirectory, installedDirectory, StringComparison.OrdinalIgnoreCase);
     }
 
     private static AppUserSettings Load()
@@ -90,6 +130,11 @@ internal static class BseSettings
         return string.Equals(cleanToken, TokenPlaceholder, StringComparison.OrdinalIgnoreCase)
             ? string.Empty
             : cleanToken;
+    }
+
+    private static string NormalizePath(string path)
+    {
+        return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
     private sealed class AppUserSettings
