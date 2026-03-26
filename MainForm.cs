@@ -320,7 +320,6 @@ internal sealed class MainForm : Form
             AppendLog("Starting pull...");
             var exportsFolder = BseSettings.GetExportsFolder();
             Directory.CreateDirectory(exportsFolder);
-            TrimPreviousExportFiles(exportsFolder);
 
             using var client = new BseClient();
             var progress = new Progress<string>(message =>
@@ -333,13 +332,7 @@ internal sealed class MainForm : Form
             AppendLog($"Received {result.Rows.Count} transaction row(s).");
             _statusLabel.Text = $"Prepared {result.Rows.Count} row(s).";
 
-            var fileName = $"BSE-export-{DateTime.Now:yyyyMMdd-HHmmss}.csv";
-            var filePath = Path.Combine(exportsFolder, fileName);
-
             var exportRows = AccountingCsvFormatter.BuildRows(result.Rows);
-            RawCsvWriter.Write(filePath, AccountingCsvFormatter.Headers, exportRows);
-            AppendLog($"Saved CSV to: {filePath}");
-
             if (exportRows.Count == 0)
             {
                 AppendLog("No exportable transactions were returned. Clipboard was not changed.");
@@ -347,6 +340,13 @@ internal sealed class MainForm : Form
                 ShowNoExportableTransactionsDialog();
                 return;
             }
+
+            TrimPreviousExportFiles(exportsFolder);
+
+            var fileName = $"BSE-export-{DateTime.Now:yyyyMMdd-HHmmss}.csv";
+            var filePath = Path.Combine(exportsFolder, fileName);
+            RawCsvWriter.Write(filePath, AccountingCsvFormatter.Headers, exportRows);
+            AppendLog($"Saved CSV to: {filePath}");
 
             var clipboardText = BuildClipboardRowsText(exportRows);
             var copiedToClipboard = TryCopyTextToClipboard(clipboardText, out var clipboardError);

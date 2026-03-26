@@ -2,6 +2,17 @@
 
 This file is a plain-English reference for how BSE Puller is built, installed, updated, and used.
 
+## Latest Release Reference
+
+- Release date: 2026-03-26
+- Tag: `v2026.03.26.1`
+- Release URL: `https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.26.1`
+- Included changes:
+  - GitHub update checks (daily startup for installed copies + manual button)
+  - Update installer download/launch flow
+  - Installer token reuse for update installs
+  - Empty pulls no longer save header-only CSV files and no longer trim previous exports
+
 ## What This Program Does
 
 BSE Puller is a Windows desktop app that connects to BILL Spend and Expense, pulls approved transactions that have not been synced yet, converts them into the accounting CSV format the team needs, saves that CSV beside the app, and copies the export rows to the clipboard for Sage import.
@@ -131,11 +142,11 @@ This folder lives beside the installed EXE.
 
 ## Export and Clipboard Behavior
 
-- The app still writes a CSV file to the local `CSV exports` folder on every export.
+- The app writes a CSV file only when one or more export rows are returned.
 - The app does not auto-open the CSV file.
 - Clipboard content is row data only (no header row), in tab-separated grid format so paste works directly into Sage cells.
 - If clipboard data is lost, the user can click `Copy Again` in the import dialog.
-- If no exportable transactions are returned, the app shows a notice and does not change clipboard contents.
+- If no exportable transactions are returned, the app shows a notice, does not change clipboard contents, and does not save a header-only CSV file.
 
 ## Current Update Model
 

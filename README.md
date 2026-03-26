@@ -1,8 +1,8 @@
 # BSE Puller
 
-[Download the latest installer](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.26.0/BsePullerSetup.exe)
+[Download the latest installer](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.26.1/BsePullerSetup.exe)
 
-[View the latest release](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.26.0)
+[View the latest release](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.26.1)
 
 Windows desktop app for pulling approved BILL Spend and Expense transactions into the accounting CSV layout used by the team.
 
@@ -24,6 +24,7 @@ See `LEDGER.md` for a plain-English reference on how the program is built, insta
 - Copies exported data rows (without the header row) to the clipboard for Sage import
 - Shows an import dialog with `Copy Again` and `Done`, then a summary step with `Back` and `Done`
 - Saves the CSV in `CSV exports` without opening the spreadsheet automatically
+- If a pull has no exportable rows, no CSV file is saved and previous backup exports remain unchanged
 - Checks for GitHub updates automatically once every 24 hours when running from an installed copy
 - Shows a final reminder with transaction count and amount total so the user can mark those transactions as synced manually in BILL Spend and Expense
 
