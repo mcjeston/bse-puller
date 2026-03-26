@@ -5,8 +5,11 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Version>2026.03.26.0</Version>
+    <InformationalVersion>v$(Version)</InformationalVersion>
     <AssemblyName>BsePuller</AssemblyName>
     <RootNamespace>BsePuller</RootNamespace>
+    <ApplicationIcon>Assets\favicon.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);snapshots\**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>

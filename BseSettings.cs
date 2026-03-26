@@ -20,6 +20,18 @@ internal static class BseSettings
         !string.IsNullOrWhiteSpace(ApiToken) &&
         !ApiToken.Equals(TokenPlaceholder, StringComparison.OrdinalIgnoreCase);
 
+    public static DateTimeOffset? GetLastUpdateCheckUtc()
+    {
+        return Load().LastUpdateCheckUtc;
+    }
+
+    public static void SaveLastUpdateCheckUtc(DateTimeOffset checkedAtUtc)
+    {
+        var settings = Load();
+        settings.LastUpdateCheckUtc = checkedAtUtc.ToUniversalTime();
+        Save(settings);
+    }
+
     public static string GetExportsFolder()
     {
         return Path.Combine(AppContext.BaseDirectory, "CSV exports");
@@ -55,31 +67,23 @@ internal static class BseSettings
     public static void SaveApiToken(string apiToken)
     {
         var cleanToken = apiToken?.Trim() ?? string.Empty;
-        var settings = new AppUserSettings
-        {
-            ApiToken = cleanToken
-        };
-
-        Directory.CreateDirectory(GetUserSettingsFolder());
-        File.WriteAllText(GetUserSettingsPath(), JsonSerializer.Serialize(settings, JsonOptions));
-        _cachedSettings = settings;
+        var settings = Load();
+        settings.ApiToken = cleanToken;
+        Save(settings);
     }
 
     public static void ClearApiToken()
     {
-        var settingsPath = GetUserSettingsPath();
-        if (File.Exists(settingsPath))
+        var settings = Load();
+        settings.ApiToken = string.Empty;
+
+        if (settings.LastUpdateCheckUtc is not null)
         {
-            File.Delete(settingsPath);
+            Save(settings);
+            return;
         }
 
-        var settingsFolder = GetUserSettingsFolder();
-        if (Directory.Exists(settingsFolder) &&
-            !Directory.EnumerateFileSystemEntries(settingsFolder).Any())
-        {
-            Directory.Delete(settingsFolder);
-        }
-
+        DeleteSettingsFile();
         _cachedSettings = new AppUserSettings();
     }
 
@@ -124,6 +128,29 @@ internal static class BseSettings
         }
     }
 
+    private static void Save(AppUserSettings settings)
+    {
+        Directory.CreateDirectory(GetUserSettingsFolder());
+        File.WriteAllText(GetUserSettingsPath(), JsonSerializer.Serialize(settings, JsonOptions));
+        _cachedSettings = settings;
+    }
+
+    private static void DeleteSettingsFile()
+    {
+        var settingsPath = GetUserSettingsPath();
+        if (File.Exists(settingsPath))
+        {
+            File.Delete(settingsPath);
+        }
+
+        var settingsFolder = GetUserSettingsFolder();
+        if (Directory.Exists(settingsFolder) &&
+            !Directory.EnumerateFileSystemEntries(settingsFolder).Any())
+        {
+            Directory.Delete(settingsFolder);
+        }
+    }
+
     private static string NormalizeToken(string? token)
     {
         var cleanToken = token?.Trim() ?? string.Empty;
@@ -140,5 +167,6 @@ internal static class BseSettings
     private sealed class AppUserSettings
     {
         public string ApiToken { get; set; } = string.Empty;
+        public DateTimeOffset? LastUpdateCheckUtc { get; set; }
     }
 }

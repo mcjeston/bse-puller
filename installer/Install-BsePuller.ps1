@@ -72,6 +72,30 @@ function Show-InstallDialog {
     }
 }
 
+function Get-ExistingApiToken {
+    $settingsPath = Join-Path $env:LOCALAPPDATA 'BsePuller\settings.json'
+    if (-not (Test-Path $settingsPath)) {
+        return $null
+    }
+
+    try {
+        $settings = Get-Content -Path $settingsPath -Raw | ConvertFrom-Json
+        if ($null -eq $settings) {
+            return $null
+        }
+
+        $existingToken = [string]$settings.ApiToken
+        if ([string]::IsNullOrWhiteSpace($existingToken)) {
+            return $null
+        }
+
+        return $existingToken.Trim()
+    }
+    catch {
+        return $null
+    }
+}
+
 function Save-UserSettings([string]$apiToken) {
     $settingsFolder = Join-Path $env:LOCALAPPDATA 'BsePuller'
     $settingsPath = Join-Path $settingsFolder 'settings.json'
@@ -123,9 +147,12 @@ function Show-Success([string]$installDir) {
         [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
 }
 
-$token = Show-InstallDialog
-if ($null -eq $token) {
-    exit 1
+$token = Get-ExistingApiToken
+if ([string]::IsNullOrWhiteSpace($token)) {
+    $token = Show-InstallDialog
+    if ($null -eq $token) {
+        exit 1
+    }
 }
 
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path

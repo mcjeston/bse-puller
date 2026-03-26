@@ -1,10 +1,12 @@
 # BSE Puller
 
-[Download the latest installer](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.25.2/BsePullerSetup.exe)
+[Download the latest installer](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.26.0/BsePullerSetup.exe)
 
-[View the latest release](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.25.2)
+[View the latest release](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.26.0)
 
 Windows desktop app for pulling approved BILL Spend and Expense transactions into the accounting CSV layout used by the team.
+
+See `LEDGER.md` for a plain-English reference on how the program is built, installed, and used.
 
 ## What the app does
 
@@ -16,10 +18,13 @@ Windows desktop app for pulling approved BILL Spend and Expense transactions int
   - `reviewers` must include `ADMIN` with `APPROVED`
   - duplicate `id` values are removed
   - conflicting GL account values are logged and excluded from any later sync-eligible set
-- Converts the results into the team’s accounting CSV column layout
+- Converts the results into the team's accounting CSV column layout
 - Saves exports into the local `CSV exports` folder beside the app
 - Keeps the newest 4 previous CSV exports as backups
-- Opens the CSV automatically after saving
+- Copies exported data rows (without the header row) to the clipboard for Sage import
+- Shows an import dialog with `Copy Again` and `Done`, then a summary step with `Back` and `Done`
+- Saves the CSV in `CSV exports` without opening the spreadsheet automatically
+- Checks for GitHub updates automatically once every 24 hours when running from an installed copy
 - Shows a final reminder with transaction count and amount total so the user can mark those transactions as synced manually in BILL Spend and Expense
 
 ## Installer and user settings
@@ -38,6 +43,7 @@ Windows desktop app for pulling approved BILL Spend and Expense transactions int
 - `Pull Transactions` runs the export
 - `Previous Exports` opens the local `CSV exports` folder
 - `Reset API Key` removes the saved BILL API token for the current Windows user
+- `Check for Updates` checks GitHub releases immediately and offers installer update when available
 - `Uninstall` removes the installed app, Start Menu shortcut, saved user settings, and installed export folder
 
 ## Build locally

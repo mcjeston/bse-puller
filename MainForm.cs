@@ -9,11 +9,14 @@ internal sealed class MainForm : Form
 {
     private readonly Button _pullButton;
     private readonly Button _openExportsButton;
+    private readonly Button _checkUpdatesButton;
     private readonly Button _resetApiKeyButton;
     private readonly Button _uninstallButton;
     private readonly TextBox _logBox;
     private readonly Label _statusLabel;
     private readonly Label _subtitleLabel;
+    private bool _isUpdateCheckRunning;
+    private bool _startupUpdateCheckStarted;
 
     public MainForm()
     {
@@ -23,6 +26,8 @@ internal sealed class MainForm : Form
         MinimumSize = new Size(940, 555);
         Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point);
         BackColor = Color.FromArgb(244, 246, 248);
+        ShowIcon = true;
+        TrySetWindowIcon();
 
         _pullButton = new Button
         {
@@ -49,6 +54,19 @@ internal sealed class MainForm : Form
         };
         _openExportsButton.FlatAppearance.BorderColor = Color.FromArgb(210, 214, 220);
         _openExportsButton.Click += (_, _) => OpenExportsFolder();
+
+        _checkUpdatesButton = new Button
+        {
+            Text = "Check for Updates",
+            Size = new Size(156, 38),
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(50, 50, 50),
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point),
+            Cursor = Cursors.Hand
+        };
+        _checkUpdatesButton.FlatAppearance.BorderColor = Color.FromArgb(210, 214, 220);
+        _checkUpdatesButton.Click += async (_, _) => await CheckForUpdatesAsync(isManual: true);
 
         _resetApiKeyButton = new Button
         {
@@ -109,6 +127,7 @@ internal sealed class MainForm : Form
         };
 
         BuildLayout();
+        Shown += async (_, _) => await RunStartupUpdateCheckIfNeededAsync();
 
         AppendLog("Ready.");
         if (!BseSettings.IsConfigured)
@@ -196,6 +215,7 @@ internal sealed class MainForm : Form
         };
         buttonFlow.Controls.Add(_pullButton);
         buttonFlow.Controls.Add(_openExportsButton);
+        buttonFlow.Controls.Add(_checkUpdatesButton);
 
         var utilityFlow = new FlowLayoutPanel
         {
@@ -283,6 +303,7 @@ internal sealed class MainForm : Form
     {
         _pullButton.Enabled = false;
         _openExportsButton.Enabled = false;
+        _checkUpdatesButton.Enabled = false;
         _resetApiKeyButton.Enabled = false;
         _uninstallButton.Enabled = false;
         var originalText = _pullButton.Text;
@@ -319,12 +340,26 @@ internal sealed class MainForm : Form
             RawCsvWriter.Write(filePath, AccountingCsvFormatter.Headers, exportRows);
             AppendLog($"Saved CSV to: {filePath}");
 
-            Process.Start(new ProcessStartInfo
+            if (exportRows.Count == 0)
             {
-                FileName = filePath,
-                UseShellExecute = true
-            });
-            AppendLog("Opened CSV.");
+                AppendLog("No exportable transactions were returned. Clipboard was not changed.");
+                _statusLabel.Text = "No transactions exported.";
+                ShowNoExportableTransactionsDialog();
+                return;
+            }
+
+            var clipboardText = BuildClipboardRowsText(exportRows);
+            var copiedToClipboard = TryCopyTextToClipboard(clipboardText, out var clipboardError);
+            if (copiedToClipboard)
+            {
+                AppendLog("Copied exported rows to the clipboard.");
+                _statusLabel.Text = "Rows copied to clipboard.";
+            }
+            else
+            {
+                AppendLog($"Warning: could not copy exported rows to the clipboard. {clipboardError}");
+                _statusLabel.Text = "Could not copy rows to clipboard.";
+            }
 
             if (result.SyncExcludedTransactionIds.Count > 0)
             {
@@ -334,12 +369,13 @@ internal sealed class MainForm : Form
             if (result.ExportedTransactionIds.Count == 0)
             {
                 AppendLog("No exported transactions were available for sync updates.");
-                _statusLabel.Text = "Export complete.";
-                return;
             }
 
             var exportSummary = BuildExportSummary(exportRows);
-            ShowCompletionDialog(BuildCompletionMessage(exportSummary.TransactionCount, exportSummary.TotalAmount));
+            ShowClipboardAndCompletionDialog(
+                clipboardText,
+                BuildCompletionMessage(exportSummary.TransactionCount, exportSummary.TotalAmount),
+                copiedToClipboard);
 
             AppendLog($"Export summary: {exportSummary.TransactionCount} transaction(s), total charge amount {exportSummary.TotalAmount.ToString("C2", CultureInfo.GetCultureInfo("en-US"))}.");
             AppendLog("Reminder shown to mark the exported transactions as synced manually in BILL Spend and Expense.");
@@ -356,6 +392,7 @@ internal sealed class MainForm : Form
             _pullButton.Text = originalText;
             _pullButton.Enabled = true;
             _openExportsButton.Enabled = true;
+            _checkUpdatesButton.Enabled = !_isUpdateCheckRunning;
             _resetApiKeyButton.Enabled = true;
             _uninstallButton.Enabled = true;
         }
@@ -373,6 +410,251 @@ internal sealed class MainForm : Form
         });
 
         AppendLog($"Opened exports folder: {exportsFolder}");
+    }
+
+    private async Task RunStartupUpdateCheckIfNeededAsync()
+    {
+        if (_startupUpdateCheckStarted)
+        {
+            return;
+        }
+
+        _startupUpdateCheckStarted = true;
+
+        if (!BseSettings.IsRunningInstalledCopy())
+        {
+            AppendLog("Skipping automatic update check because this is not the installed copy.");
+            return;
+        }
+
+        var lastCheckedUtc = BseSettings.GetLastUpdateCheckUtc();
+        if (lastCheckedUtc is not null &&
+            DateTimeOffset.UtcNow - lastCheckedUtc.Value < TimeSpan.FromHours(24))
+        {
+            AppendLog($"Skipping automatic update check. Last checked at {lastCheckedUtc.Value.ToLocalTime():g}.");
+            return;
+        }
+
+        await CheckForUpdatesAsync(isManual: false);
+    }
+
+    private async Task CheckForUpdatesAsync(bool isManual)
+    {
+        if (_isUpdateCheckRunning)
+        {
+            if (isManual)
+            {
+                MessageBox.Show(
+                    this,
+                    "An update check is already in progress.",
+                    "Update check in progress",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+
+            return;
+        }
+
+        var originalStatusText = _statusLabel.Text;
+        var originalCheckButtonText = _checkUpdatesButton.Text;
+        var pullWasEnabled = _pullButton.Enabled;
+        var openExportsWasEnabled = _openExportsButton.Enabled;
+        var resetWasEnabled = _resetApiKeyButton.Enabled;
+        var uninstallWasEnabled = _uninstallButton.Enabled;
+
+        _isUpdateCheckRunning = true;
+        _pullButton.Enabled = false;
+        _openExportsButton.Enabled = false;
+        _checkUpdatesButton.Enabled = false;
+        _checkUpdatesButton.Text = "Checking...";
+        _resetApiKeyButton.Enabled = false;
+        _uninstallButton.Enabled = false;
+
+        try
+        {
+            AppendLog(isManual ? "Checking for updates..." : "Running automatic update check...");
+            _statusLabel.Text = "Checking for updates...";
+
+            var result = await UpdateService.CheckForUpdatesAsync(CancellationToken.None);
+            if (!result.CheckedSuccessfully)
+            {
+                var error = string.IsNullOrWhiteSpace(result.ErrorMessage) ? "Unknown error." : result.ErrorMessage;
+                AppendLog($"Update check failed. {error}");
+
+                if (isManual)
+                {
+                    MessageBox.Show(
+                        this,
+                        $"Could not check for updates.{Environment.NewLine}{Environment.NewLine}{error}",
+                        "Update check failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
+                return;
+            }
+
+            if (!result.IsUpdateAvailable)
+            {
+                AppendLog($"No updates available. Current version: {result.CurrentTag}.");
+
+                if (isManual)
+                {
+                    MessageBox.Show(
+                        this,
+                        $"You already have the latest version ({result.CurrentTag}).",
+                        "No updates available",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+
+                return;
+            }
+
+            var latestTag = result.LatestTag ?? "unknown";
+            AppendLog($"Update available. Current: {result.CurrentTag}. Latest: {latestTag}.");
+
+            if (!ShowUpdateAvailableDialog(result.CurrentTag, latestTag))
+            {
+                AppendLog("Update postponed.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(result.DownloadUrl))
+            {
+                const string missingAssetMessage = "A newer release was found, but it does not include BsePullerSetup.exe.";
+                AppendLog(missingAssetMessage);
+                MessageBox.Show(
+                    this,
+                    missingAssetMessage,
+                    "Update unavailable",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            AppendLog("Downloading update installer...");
+            _statusLabel.Text = "Downloading update installer...";
+
+            var downloadResult = await UpdateService.DownloadInstallerAsync(result.DownloadUrl, CancellationToken.None);
+            if (!downloadResult.Success || string.IsNullOrWhiteSpace(downloadResult.FilePath))
+            {
+                var error = string.IsNullOrWhiteSpace(downloadResult.ErrorMessage) ? "Unknown error." : downloadResult.ErrorMessage;
+                AppendLog($"Update download failed. {error}");
+                MessageBox.Show(
+                    this,
+                    $"Could not download the update installer.{Environment.NewLine}{Environment.NewLine}{error}",
+                    "Update download failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            AppendLog($"Downloaded update installer to: {downloadResult.FilePath}");
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = downloadResult.FilePath,
+                UseShellExecute = true
+            });
+
+            AppendLog("Launched update installer. Closing BSE Puller.");
+            _statusLabel.Text = "Update installer started. Closing...";
+            Close();
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Update check failed. {ex.Message}");
+
+            if (isManual)
+            {
+                MessageBox.Show(
+                    this,
+                    $"Could not complete the update check.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
+                    "Update check failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+        finally
+        {
+            try
+            {
+                BseSettings.SaveLastUpdateCheckUtc(DateTimeOffset.UtcNow);
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"Warning: could not save update-check timestamp. {ex.Message}");
+            }
+
+            _isUpdateCheckRunning = false;
+
+            if (!IsDisposed)
+            {
+                _pullButton.Enabled = pullWasEnabled;
+                _openExportsButton.Enabled = openExportsWasEnabled;
+                _checkUpdatesButton.Enabled = pullWasEnabled;
+                _checkUpdatesButton.Text = originalCheckButtonText;
+                _resetApiKeyButton.Enabled = resetWasEnabled;
+                _uninstallButton.Enabled = uninstallWasEnabled;
+                _statusLabel.Text = originalStatusText;
+            }
+        }
+    }
+
+    private bool ShowUpdateAvailableDialog(string currentTag, string latestTag)
+    {
+        using var dialog = new Form
+        {
+            Text = "Update Available",
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            ClientSize = new Size(560, 230),
+            Font = Font
+        };
+
+        var messageLabel = new Label
+        {
+            AutoSize = false,
+            Location = new Point(18, 18),
+            Size = new Size(524, 138),
+            Text =
+                "A newer version of BSE Puller is available." +
+                Environment.NewLine +
+                Environment.NewLine +
+                $"Current version: {currentTag}" +
+                Environment.NewLine +
+                $"Latest version: {latestTag}" +
+                Environment.NewLine +
+                Environment.NewLine +
+                "Click Install Update to download and run the latest installer now."
+        };
+
+        var installButton = new Button
+        {
+            Text = "Install Update",
+            DialogResult = DialogResult.OK,
+            Size = new Size(118, 32),
+            Location = new Point(332, 180)
+        };
+
+        var laterButton = new Button
+        {
+            Text = "Later",
+            DialogResult = DialogResult.Cancel,
+            Size = new Size(92, 32),
+            Location = new Point(450, 180)
+        };
+
+        dialog.AcceptButton = laterButton;
+        dialog.CancelButton = laterButton;
+        dialog.Controls.Add(messageLabel);
+        dialog.Controls.Add(installButton);
+        dialog.Controls.Add(laterButton);
+
+        return dialog.ShowDialog(this) == DialogResult.OK;
     }
 
     private void ResetApiKey()
@@ -585,40 +867,213 @@ internal sealed class MainForm : Form
         return $"The CSV export is ready.{Environment.NewLine}{Environment.NewLine}Verify {transactionCount} transaction(s) with a total charge amount of {amountText}.{Environment.NewLine}{Environment.NewLine}Then mark these transactions as synced manually in BILL Spend and Expense.";
     }
 
-    private void ShowCompletionDialog(string message)
+    private static string BuildClipboardRowsText(IReadOnlyList<Dictionary<string, string?>> exportRows)
+    {
+        var builder = new StringBuilder();
+
+        for (var rowIndex = 0; rowIndex < exportRows.Count; rowIndex++)
+        {
+            var row = exportRows[rowIndex];
+
+            for (var columnIndex = 0; columnIndex < AccountingCsvFormatter.Headers.Count; columnIndex++)
+            {
+                if (columnIndex > 0)
+                {
+                    builder.Append('\t');
+                }
+
+                var header = AccountingCsvFormatter.Headers[columnIndex];
+                row.TryGetValue(header, out var value);
+                builder.Append(SanitizeClipboardCell(value));
+            }
+
+            if (rowIndex < exportRows.Count - 1)
+            {
+                builder.AppendLine();
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static string SanitizeClipboardCell(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        return value
+            .Replace("\r\n", " ", StringComparison.Ordinal)
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
+            .Replace('\t', ' ');
+    }
+
+    private static bool TryCopyTextToClipboard(string text, out string errorMessage)
+    {
+        for (var attempt = 1; attempt <= 5; attempt++)
+        {
+            try
+            {
+                Clipboard.SetText(text);
+                errorMessage = string.Empty;
+                return true;
+            }
+            catch (Exception) when (attempt < 5)
+            {
+                Thread.Sleep(80);
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        errorMessage = "Unknown clipboard error.";
+        return false;
+    }
+
+    private static string BuildClipboardInstructionMessage()
+    {
+        return "The information has been copied to the clipboard." +
+               Environment.NewLine +
+               Environment.NewLine +
+               "Open Sage 100 Contractor screen 4-7-7 (Import Credit Card Transactions), select card issuer account 21010 - Bill Spend & Expense, and paste into the first cell.";
+    }
+
+    private static string BuildClipboardUnavailableMessage()
+    {
+        return "The CSV export was saved, but the information could not be copied to the clipboard automatically." +
+               Environment.NewLine +
+               Environment.NewLine +
+               "Open Sage 100 Contractor screen 4-7-7 (Import Credit Card Transactions), select card issuer account 21010 - Bill Spend & Expense, then click Copy Again and paste into the first cell.";
+    }
+
+    private void ShowNoExportableTransactionsDialog()
+    {
+        MessageBox.Show(
+            this,
+            "No exportable transactions were returned, so nothing was copied to the clipboard.",
+            "No transactions to export",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
+    }
+
+    private void ShowClipboardAndCompletionDialog(string clipboardText, string completionMessage, bool copiedToClipboard)
     {
         using var dialog = new Form
         {
-            Text = "Manual Sync Reminder",
+            Text = "Sage Import Instructions",
             StartPosition = FormStartPosition.CenterParent,
             FormBorderStyle = FormBorderStyle.FixedDialog,
             MaximizeBox = false,
             MinimizeBox = false,
             ShowInTaskbar = false,
-            ClientSize = new Size(470, 210),
+            ClientSize = new Size(700, 270),
             Font = Font
         };
 
         var messageLabel = new Label
         {
-            Text = message,
             AutoSize = false,
             Location = new Point(18, 18),
-            Size = new Size(434, 130)
+            Size = new Size(664, 176)
+        };
+
+        var copyAgainButton = new Button
+        {
+            Text = "Copy Again",
+            Size = new Size(102, 32),
+            Location = new Point(480, 220)
+        };
+
+        var backButton = new Button
+        {
+            Text = "Back",
+            Size = new Size(102, 32),
+            Location = new Point(480, 220),
+            Visible = false,
+            Enabled = false
         };
 
         var doneButton = new Button
         {
             Text = "Done",
-            DialogResult = DialogResult.OK,
             Size = new Size(92, 32),
-            Location = new Point(360, 160)
+            Location = new Point(590, 220)
+        };
+
+        var showingSummary = false;
+
+        void ShowInstructionState()
+        {
+            showingSummary = false;
+            dialog.Text = "Sage Import Instructions";
+            messageLabel.Text = copiedToClipboard ? BuildClipboardInstructionMessage() : BuildClipboardUnavailableMessage();
+            copyAgainButton.Visible = true;
+            copyAgainButton.Enabled = true;
+            backButton.Visible = false;
+            backButton.Enabled = false;
+        }
+
+        void ShowSummaryState()
+        {
+            showingSummary = true;
+            dialog.Text = "Manual Sync Reminder";
+            messageLabel.Text = completionMessage;
+            copyAgainButton.Visible = false;
+            copyAgainButton.Enabled = false;
+            backButton.Visible = true;
+            backButton.Enabled = true;
+        }
+
+        copyAgainButton.Click += (_, _) =>
+        {
+            if (TryCopyTextToClipboard(clipboardText, out var errorMessage))
+            {
+                copiedToClipboard = true;
+                AppendLog("Copied exported rows to the clipboard again.");
+                _statusLabel.Text = "Rows copied to clipboard.";
+            }
+            else
+            {
+                copiedToClipboard = false;
+                AppendLog($"Warning: could not copy exported rows to the clipboard. {errorMessage}");
+                _statusLabel.Text = "Could not copy rows to clipboard.";
+                MessageBox.Show(
+                    dialog,
+                    $"Could not copy the information to the clipboard.{Environment.NewLine}{Environment.NewLine}{errorMessage}",
+                    "Clipboard unavailable",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+
+            ShowInstructionState();
+        };
+
+        backButton.Click += (_, _) => ShowInstructionState();
+
+        doneButton.Click += (_, _) =>
+        {
+            if (!showingSummary)
+            {
+                ShowSummaryState();
+                return;
+            }
+
+            dialog.DialogResult = DialogResult.OK;
+            dialog.Close();
         };
 
         dialog.AcceptButton = doneButton;
-        dialog.CancelButton = doneButton;
         dialog.Controls.Add(messageLabel);
+        dialog.Controls.Add(copyAgainButton);
+        dialog.Controls.Add(backButton);
         dialog.Controls.Add(doneButton);
+
+        ShowInstructionState();
         dialog.ShowDialog(this);
     }
 
@@ -719,6 +1174,18 @@ internal sealed class MainForm : Form
     private static string EscapePowerShellString(string value)
     {
         return value.Replace("'", "''");
+    }
+
+    private void TrySetWindowIcon()
+    {
+        try
+        {
+            Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        }
+        catch
+        {
+            // Keep the default icon if the executable icon cannot be read.
+        }
     }
 
     private static RoundedPanel CreateCardPanel()
