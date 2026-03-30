@@ -11,8 +11,12 @@ internal static class BseSettings
     public static readonly Uri BaseUri = new("https://gateway.prod.bill.com/connect/");
 
     public const string TransactionsPath = "v3/spend/transactions";
+    public const string ReimbursementsPath = "v3/spend/reimbursements";
+    public const string CustomFieldsPath = "v3/spend/custom-fields";
     public const string TransactionsApiFilter = "type:ne:DECLINE,syncStatus:eq:NOT_SYNCED,complete:eq:true";
+    public const string ReimbursementsApiFilter = "retired:eq:false";
     public const int PageSize = 50;
+    public const int ReimbursementsPageSize = 100;
 
     public static string ApiToken => Load().ApiToken;
 
@@ -32,9 +36,26 @@ internal static class BseSettings
         Save(settings);
     }
 
+    public static DateTimeOffset? GetLastReimbursementWebLoginUtc()
+    {
+        return Load().LastReimbursementWebLoginUtc;
+    }
+
+    public static void SaveLastReimbursementWebLoginUtc(DateTimeOffset loggedInAtUtc)
+    {
+        var settings = Load();
+        settings.LastReimbursementWebLoginUtc = loggedInAtUtc.ToUniversalTime();
+        Save(settings);
+    }
+
     public static string GetExportsFolder()
     {
         return Path.Combine(AppContext.BaseDirectory, "CSV exports");
+    }
+
+    public static string GetReimbursementExportsFolder()
+    {
+        return GetExportsFolder();
     }
 
     public static string GetInstalledAppFolder()
@@ -62,6 +83,16 @@ internal static class BseSettings
     public static string GetUserSettingsPath()
     {
         return Path.Combine(GetUserSettingsFolder(), "settings.json");
+    }
+
+    public static string GetWebView2UserDataFolder()
+    {
+        return Path.Combine(GetUserSettingsFolder(), "WebView2");
+    }
+
+    public static string GetTempFolder()
+    {
+        return Path.Combine(GetUserSettingsFolder(), "Temp");
     }
 
     public static void SaveApiToken(string apiToken)
@@ -168,5 +199,6 @@ internal static class BseSettings
     {
         public string ApiToken { get; set; } = string.Empty;
         public DateTimeOffset? LastUpdateCheckUtc { get; set; }
+        public DateTimeOffset? LastReimbursementWebLoginUtc { get; set; }
     }
 }

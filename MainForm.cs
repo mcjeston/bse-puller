@@ -8,22 +8,29 @@ namespace BsePuller;
 internal sealed class MainForm : Form
 {
     private readonly Button _pullButton;
+    private readonly Button _pullReimbursementsButton;
     private readonly Button _openExportsButton;
-    private readonly Button _checkUpdatesButton;
-    private readonly Button _resetApiKeyButton;
-    private readonly Button _uninstallButton;
+    private readonly Button _settingsButton;
+    private readonly ContextMenuStrip _settingsMenu;
+    private readonly ToolStripMenuItem _checkUpdatesMenuItem;
+    private readonly ToolStripMenuItem _resetApiKeyMenuItem;
+    private readonly ToolStripMenuItem _uninstallMenuItem;
     private readonly TextBox _logBox;
     private readonly Label _statusLabel;
-    private readonly Label _subtitleLabel;
+    private Form? _reimbursementBrowserForm;
     private bool _isUpdateCheckRunning;
     private bool _startupUpdateCheckStarted;
+    private const string TransactionsIssuerAccount = "21010 - Bill Spend & Expense";
+    private const string ReimbursementsIssuerAccount = "21011 - BSE Reimbursements";
+    private const string TransactionsCreditCardLabel = "1 - Bill Spend & Expense";
+    private const string ReimbursementsCreditCardLabel = "1 - BSE Reimbursements";
 
     public MainForm()
     {
         Text = "BSE Puller";
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(940, 575);
-        MinimumSize = new Size(940, 555);
+        ClientSize = new Size(752, 555);
+        MinimumSize = new Size(752, 555);
         Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point);
         BackColor = Color.FromArgb(244, 246, 248);
         ShowIcon = true;
@@ -31,8 +38,8 @@ internal sealed class MainForm : Form
 
         _pullButton = new Button
         {
-            Text = "Pull Transactions",
-            Size = new Size(158, 38),
+            Text = "PULL TRANSACTIONS",
+            Size = new Size(158, 45),
             BackColor = Color.FromArgb(255, 122, 0),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -42,76 +49,89 @@ internal sealed class MainForm : Form
         _pullButton.FlatAppearance.BorderSize = 0;
         _pullButton.Click += async (_, _) => await PullTransactionsAsync();
 
+        _pullReimbursementsButton = new Button
+        {
+            Text = "PULL REIMBURSEMENTS",
+            Size = new Size(158, 45),
+            BackColor = Color.FromArgb(124, 130, 137),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold, GraphicsUnit.Point),
+            Cursor = Cursors.Default,
+            Enabled = false
+        };
+        _pullReimbursementsButton.FlatAppearance.BorderSize = 0;
+
         _openExportsButton = new Button
         {
-            Text = "Previous Exports",
-            Size = new Size(148, 38),
+            Text = "PREVIOUS EXPORTS",
+            Size = new Size(148, 45),
             BackColor = Color.White,
             ForeColor = Color.FromArgb(50, 50, 50),
             FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point),
+            Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold, GraphicsUnit.Point),
             Cursor = Cursors.Hand
         };
         _openExportsButton.FlatAppearance.BorderColor = Color.FromArgb(210, 214, 220);
+        _openExportsButton.FlatAppearance.BorderSize = 1;
         _openExportsButton.Click += (_, _) => OpenExportsFolder();
 
-        _checkUpdatesButton = new Button
-        {
-            Text = "Check for Updates",
-            Size = new Size(156, 38),
-            BackColor = Color.White,
-            ForeColor = Color.FromArgb(50, 50, 50),
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point),
-            Cursor = Cursors.Hand
-        };
-        _checkUpdatesButton.FlatAppearance.BorderColor = Color.FromArgb(210, 214, 220);
-        _checkUpdatesButton.Click += async (_, _) => await CheckForUpdatesAsync(isManual: true);
+        _checkUpdatesMenuItem = new ToolStripMenuItem("Check for Updates");
+        _checkUpdatesMenuItem.Click += async (_, _) => await CheckForUpdatesAsync(isManual: true);
 
-        _resetApiKeyButton = new Button
-        {
-            Text = "Reset API Key",
-            Size = new Size(118, 32),
-            BackColor = Color.White,
-            ForeColor = Color.FromArgb(60, 64, 70),
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 8.75F, FontStyle.Regular, GraphicsUnit.Point),
-            Cursor = Cursors.Hand
-        };
-        _resetApiKeyButton.FlatAppearance.BorderColor = Color.FromArgb(210, 214, 220);
-        _resetApiKeyButton.Click += (_, _) => ResetApiKey();
+        _resetApiKeyMenuItem = new ToolStripMenuItem("Reset API Key");
+        _resetApiKeyMenuItem.Click += (_, _) => ResetApiKey();
 
-        _uninstallButton = new Button
+        _uninstallMenuItem = new ToolStripMenuItem("Uninstall");
+        _uninstallMenuItem.Click += (_, _) => StartUninstall();
+
+        _settingsMenu = new ContextMenuStrip();
+        _settingsMenu.Items.AddRange(new ToolStripItem[]
         {
-            Text = "Uninstall",
-            Size = new Size(96, 32),
+            _checkUpdatesMenuItem,
+            _resetApiKeyMenuItem,
+            _uninstallMenuItem
+        });
+
+        var settingsHoverColor = Color.FromArgb(230, 234, 240);
+        var settingsDownColor = Color.FromArgb(214, 218, 224);
+
+        _settingsButton = new Button
+        {
+            Text = "\uE713",
+            Size = new Size(36, 36),
             BackColor = Color.White,
-            ForeColor = Color.FromArgb(157, 45, 45),
+            ForeColor = Color.FromArgb(90, 94, 102),
             FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 8.75F, FontStyle.Regular, GraphicsUnit.Point),
-            Cursor = Cursors.Hand
+            Font = new Font("Segoe MDL2 Assets", 12F, FontStyle.Regular, GraphicsUnit.Point),
+            Cursor = Cursors.Hand,
+            TabStop = false
         };
-        _uninstallButton.FlatAppearance.BorderColor = Color.FromArgb(229, 190, 190);
-        _uninstallButton.Click += (_, _) => StartUninstall();
+        _settingsButton.UseVisualStyleBackColor = false;
+        _settingsButton.FlatAppearance.BorderSize = 0;
+        _settingsButton.FlatAppearance.MouseOverBackColor = settingsHoverColor;
+        _settingsButton.FlatAppearance.MouseDownBackColor = settingsDownColor;
+        _settingsButton.AccessibleName = "Settings";
+        _settingsButton.MouseEnter += (_, _) => _settingsButton.BackColor = settingsHoverColor;
+        _settingsButton.MouseLeave += (_, _) => _settingsButton.BackColor = Color.White;
+        _settingsButton.MouseDown += (_, _) => _settingsButton.BackColor = settingsDownColor;
+        _settingsButton.MouseUp += (_, _) =>
+        {
+            var inside = _settingsButton.ClientRectangle.Contains(_settingsButton.PointToClient(Cursor.Position));
+            _settingsButton.BackColor = inside ? settingsHoverColor : Color.White;
+        };
+        _settingsButton.Click += (_, _) =>
+        {
+            _settingsMenu.Show(_settingsButton, new Point(0, _settingsButton.Height));
+        };
 
         _statusLabel = new Label
         {
             AutoSize = true,
             Font = new Font("Segoe UI", 9.25F, FontStyle.Regular, GraphicsUnit.Point),
             ForeColor = Color.FromArgb(70, 74, 82),
-            Text = "Waiting for you to start a pull.",
-            Margin = new Padding(16, 10, 0, 0)
-        };
-
-        _subtitleLabel = new Label
-        {
-            AutoSize = false,
-            Dock = DockStyle.Fill,
-            Text = "Pull approved not-synced transactions, format the accounting CSV, and save it in the local CSV exports folder.",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point),
-            ForeColor = Color.FromArgb(96, 100, 108),
-            Margin = new Padding(0, 8, 0, 0),
-            TextAlign = ContentAlignment.TopLeft
+            Text = "Progress, warnings, and export details appear here.",
+            Margin = new Padding(12, 4, 0, 0)
         };
 
         _logBox = new TextBox
@@ -149,12 +169,12 @@ internal sealed class MainForm : Form
             RowCount = 3,
             BackColor = Color.Transparent
         };
-        rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 116F));
-        rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 166F));
+        rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 82F));
+        rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
         var headerCard = CreateCardPanel();
-        headerCard.Padding = new Padding(22, 18, 22, 18);
+        headerCard.Padding = new Padding(16, 12, 16, 12);
 
         var accentBar = new Panel
         {
@@ -164,17 +184,6 @@ internal sealed class MainForm : Form
             Margin = new Padding(0)
         };
 
-        var headerTextPanel = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 2,
-            BackColor = Color.Transparent,
-            Margin = new Padding(16, 0, 0, 0)
-        };
-        headerTextPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        headerTextPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
         var title = new Label
         {
             AutoSize = true,
@@ -183,58 +192,88 @@ internal sealed class MainForm : Form
             ForeColor = Color.FromArgb(28, 28, 30)
         };
 
-        headerTextPanel.Controls.Add(title, 0, 0);
-        headerTextPanel.Controls.Add(_subtitleLabel, 0, 1);
-        headerCard.Controls.Add(headerTextPanel);
+        var headerContent = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0)
+        };
+        headerContent.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        headerContent.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 56F));
+        headerContent.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+        title.Margin = new Padding(16, 2, 0, 0);
+        _settingsButton.Margin = new Padding(0);
+        _settingsButton.Anchor = AnchorStyles.None;
+
+        var settingsHost = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0)
+        };
+        settingsHost.Controls.Add(_settingsButton);
+        settingsHost.Resize += (_, _) =>
+        {
+            _settingsButton.Location = new Point(
+                Math.Max(0, settingsHost.Width - _settingsButton.Width),
+                Math.Max(0, (settingsHost.Height - _settingsButton.Height) / 2));
+        };
+
+        headerContent.Controls.Add(title, 0, 0);
+        headerContent.Controls.Add(settingsHost, 1, 0);
+
+        headerCard.Controls.Add(headerContent);
         headerCard.Controls.Add(accentBar);
 
         var actionCard = CreateCardPanel();
         actionCard.Padding = new Padding(18, 16, 18, 16);
+        actionCard.AutoSize = true;
+        actionCard.AutoSizeMode = AutoSizeMode.GrowAndShrink;
 
         var actionLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            RowCount = 2,
+            RowCount = 3,
             BackColor = Color.Transparent
         };
-        actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        actionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        actionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        actionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
+        actionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 18F));
+        actionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
 
-        var buttonFlow = new FlowLayoutPanel
+        _pullButton.Dock = DockStyle.Fill;
+        _pullButton.Margin = new Padding(0, 0, 8, 0);
+        _pullReimbursementsButton.Dock = DockStyle.Fill;
+        _pullReimbursementsButton.Margin = new Padding(8, 0, 0, 0);
+        _openExportsButton.Dock = DockStyle.Fill;
+        _openExportsButton.Margin = new Padding(0);
+
+        var reimbursementsComingSoonLabel = new Label
         {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false,
-            Dock = DockStyle.Left,
-            BackColor = Color.Transparent,
-            Margin = new Padding(0)
+            Text = "Coming Soon",
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.TopCenter,
+            Font = new Font("Segoe UI", 8F, FontStyle.Regular, GraphicsUnit.Point),
+            ForeColor = Color.FromArgb(120, 124, 130),
+            Margin = new Padding(8, 2, 0, 0)
         };
-        buttonFlow.Controls.Add(_pullButton);
-        buttonFlow.Controls.Add(_openExportsButton);
-        buttonFlow.Controls.Add(_checkUpdatesButton);
 
-        var utilityFlow = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false,
-            Dock = DockStyle.Left,
-            BackColor = Color.Transparent,
-            Margin = new Padding(0, 10, 0, 0)
-        };
-        utilityFlow.Controls.Add(_resetApiKeyButton);
-        utilityFlow.Controls.Add(_uninstallButton);
-
-        actionLayout.Controls.Add(buttonFlow, 0, 0);
-        actionLayout.Controls.Add(_statusLabel, 1, 0);
-        actionLayout.Controls.Add(utilityFlow, 0, 1);
-        actionLayout.SetColumnSpan(utilityFlow, 2);
+        actionLayout.Controls.Add(_pullButton, 0, 0);
+        actionLayout.Controls.Add(_pullReimbursementsButton, 1, 0);
+        actionLayout.Controls.Add(reimbursementsComingSoonLabel, 1, 1);
+        actionLayout.Controls.Add(_openExportsButton, 0, 2);
+        actionLayout.SetColumnSpan(_openExportsButton, 2);
         actionCard.Controls.Add(actionLayout);
+
+        actionLayout.AutoSize = true;
+        actionLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        actionLayout.Dock = DockStyle.Top;
 
         var activityCard = CreateCardPanel();
         activityCard.Padding = new Padding(18, 16, 18, 18);
@@ -266,17 +305,20 @@ internal sealed class MainForm : Form
             Location = new Point(0, 3)
         };
 
-        var activityHint = new Label
+        var activityHeaderFlow = new FlowLayoutPanel
         {
+            Dock = DockStyle.Fill,
             AutoSize = true,
-            Text = "Progress, warnings, and export details appear here.",
-            Font = new Font("Segoe UI", 8.75F, FontStyle.Regular, GraphicsUnit.Point),
-            ForeColor = Color.FromArgb(114, 118, 125),
-            Location = new Point(82, 4)
+            WrapContents = false,
+            FlowDirection = FlowDirection.LeftToRight,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0)
         };
+        activityTitle.Margin = new Padding(0, 3, 0, 0);
 
-        activityHeaderPanel.Controls.Add(activityTitle);
-        activityHeaderPanel.Controls.Add(activityHint);
+        activityHeaderFlow.Controls.Add(activityTitle);
+        activityHeaderFlow.Controls.Add(_statusLabel);
+        activityHeaderPanel.Controls.Add(activityHeaderFlow);
 
         var logHost = new Panel
         {
@@ -302,10 +344,11 @@ internal sealed class MainForm : Form
     private async Task PullTransactionsAsync()
     {
         _pullButton.Enabled = false;
+        _pullReimbursementsButton.Enabled = false;
         _openExportsButton.Enabled = false;
-        _checkUpdatesButton.Enabled = false;
-        _resetApiKeyButton.Enabled = false;
-        _uninstallButton.Enabled = false;
+        _checkUpdatesMenuItem.Enabled = false;
+        _resetApiKeyMenuItem.Enabled = false;
+        _uninstallMenuItem.Enabled = false;
         var originalText = _pullButton.Text;
         _pullButton.Text = "Pulling...";
         _statusLabel.Text = "Contacting BILL and preparing the export.";
@@ -332,16 +375,16 @@ internal sealed class MainForm : Form
             AppendLog($"Received {result.Rows.Count} transaction row(s).");
             _statusLabel.Text = $"Prepared {result.Rows.Count} row(s).";
 
-            var exportRows = AccountingCsvFormatter.BuildRows(result.Rows);
+            var exportRows = AccountingCsvFormatter.BuildRows(result.Rows, TransactionsCreditCardLabel);
             if (exportRows.Count == 0)
             {
                 AppendLog("No exportable transactions were returned. Clipboard was not changed.");
                 _statusLabel.Text = "No transactions exported.";
-                ShowNoExportableTransactionsDialog();
+                ShowNoExportableItemsDialog("transactions");
                 return;
             }
 
-            TrimPreviousExportFiles(exportsFolder);
+            TrimPreviousExportFiles(exportsFolder, "BSE-export-*.csv", "export");
 
             var fileName = $"BSE-export-{DateTime.Now:yyyyMMdd-HHmmss}.csv";
             var filePath = Path.Combine(exportsFolder, fileName);
@@ -372,10 +415,13 @@ internal sealed class MainForm : Form
             }
 
             var exportSummary = BuildExportSummary(exportRows);
+            var summaryLine = BuildSummaryLine(exportSummary.TransactionCount, exportSummary.TotalAmount, "transaction(s)");
             ShowClipboardAndCompletionDialog(
                 clipboardText,
-                BuildCompletionMessage(exportSummary.TransactionCount, exportSummary.TotalAmount),
-                copiedToClipboard);
+                BuildCompletionMessage(exportSummary.TransactionCount, exportSummary.TotalAmount, "transaction(s)"),
+                copiedToClipboard,
+                TransactionsIssuerAccount,
+                summaryLine);
 
             AppendLog($"Export summary: {exportSummary.TransactionCount} transaction(s), total charge amount {exportSummary.TotalAmount.ToString("C2", CultureInfo.GetCultureInfo("en-US"))}.");
             AppendLog("Reminder shown to mark the exported transactions as synced manually in BILL Spend and Expense.");
@@ -391,10 +437,11 @@ internal sealed class MainForm : Form
         {
             _pullButton.Text = originalText;
             _pullButton.Enabled = true;
+            _pullReimbursementsButton.Enabled = false;
             _openExportsButton.Enabled = true;
-            _checkUpdatesButton.Enabled = !_isUpdateCheckRunning;
-            _resetApiKeyButton.Enabled = true;
-            _uninstallButton.Enabled = true;
+            _checkUpdatesMenuItem.Enabled = !_isUpdateCheckRunning;
+            _resetApiKeyMenuItem.Enabled = true;
+            _uninstallMenuItem.Enabled = true;
         }
     }
 
@@ -456,19 +503,22 @@ internal sealed class MainForm : Form
         }
 
         var originalStatusText = _statusLabel.Text;
-        var originalCheckButtonText = _checkUpdatesButton.Text;
+        var originalCheckMenuText = _checkUpdatesMenuItem.Text;
         var pullWasEnabled = _pullButton.Enabled;
+        var pullReimbursementsWasEnabled = _pullReimbursementsButton.Enabled;
         var openExportsWasEnabled = _openExportsButton.Enabled;
-        var resetWasEnabled = _resetApiKeyButton.Enabled;
-        var uninstallWasEnabled = _uninstallButton.Enabled;
+        var checkMenuWasEnabled = _checkUpdatesMenuItem.Enabled;
+        var resetWasEnabled = _resetApiKeyMenuItem.Enabled;
+        var uninstallWasEnabled = _uninstallMenuItem.Enabled;
 
         _isUpdateCheckRunning = true;
         _pullButton.Enabled = false;
+        _pullReimbursementsButton.Enabled = false;
         _openExportsButton.Enabled = false;
-        _checkUpdatesButton.Enabled = false;
-        _checkUpdatesButton.Text = "Checking...";
-        _resetApiKeyButton.Enabled = false;
-        _uninstallButton.Enabled = false;
+        _checkUpdatesMenuItem.Enabled = false;
+        _checkUpdatesMenuItem.Text = "Checking...";
+        _resetApiKeyMenuItem.Enabled = false;
+        _uninstallMenuItem.Enabled = false;
 
         try
         {
@@ -591,11 +641,12 @@ internal sealed class MainForm : Form
             if (!IsDisposed)
             {
                 _pullButton.Enabled = pullWasEnabled;
+                _pullReimbursementsButton.Enabled = pullReimbursementsWasEnabled;
                 _openExportsButton.Enabled = openExportsWasEnabled;
-                _checkUpdatesButton.Enabled = pullWasEnabled;
-                _checkUpdatesButton.Text = originalCheckButtonText;
-                _resetApiKeyButton.Enabled = resetWasEnabled;
-                _uninstallButton.Enabled = uninstallWasEnabled;
+                _checkUpdatesMenuItem.Enabled = checkMenuWasEnabled;
+                _checkUpdatesMenuItem.Text = originalCheckMenuText;
+                _resetApiKeyMenuItem.Enabled = resetWasEnabled;
+                _uninstallMenuItem.Enabled = uninstallWasEnabled;
                 _statusLabel.Text = originalStatusText;
             }
         }
@@ -861,10 +912,48 @@ internal sealed class MainForm : Form
         return (exportRows.Count, totalAmount);
     }
 
-    private static string BuildCompletionMessage(int transactionCount, decimal totalAmount)
+    private static (int RowCount, decimal TotalAmount) BuildRawAmountSummary(IReadOnlyList<Dictionary<string, string?>> rows)
+    {
+        decimal totalAmount = 0;
+
+        foreach (var row in rows)
+        {
+            var amountText = GetFirstRawAmountValue(row);
+            if (!string.IsNullOrWhiteSpace(amountText) &&
+                decimal.TryParse(amountText, NumberStyles.Any, CultureInfo.InvariantCulture, out var amount))
+            {
+                totalAmount += amount;
+            }
+        }
+
+        return (rows.Count, totalAmount);
+    }
+
+    private static string? GetFirstRawAmountValue(IReadOnlyDictionary<string, string?> row)
+    {
+        if (row.TryGetValue("amount", out var direct) && !string.IsNullOrWhiteSpace(direct))
+        {
+            return direct;
+        }
+
+        if (row.TryGetValue("amount.value", out var nested) && !string.IsNullOrWhiteSpace(nested))
+        {
+            return nested;
+        }
+
+        return null;
+    }
+
+    private static string BuildCompletionMessage(int itemCount, decimal totalAmount, string itemLabel)
+    {
+        var summaryLine = BuildSummaryLine(itemCount, totalAmount, itemLabel);
+        return $"The CSV export is ready.{Environment.NewLine}{Environment.NewLine}{summaryLine}{Environment.NewLine}{Environment.NewLine}Then mark these {itemLabel} as synced manually in BILL Spend and Expense.";
+    }
+
+    private static string BuildSummaryLine(int itemCount, decimal totalAmount, string itemLabel)
     {
         var amountText = totalAmount.ToString("C2", CultureInfo.GetCultureInfo("en-US"));
-        return $"The CSV export is ready.{Environment.NewLine}{Environment.NewLine}Verify {transactionCount} transaction(s) with a total charge amount of {amountText}.{Environment.NewLine}{Environment.NewLine}Then mark these transactions as synced manually in BILL Spend and Expense.";
+        return $"Verify {itemCount} {itemLabel} with a total charge amount of {amountText}.";
     }
 
     private static string BuildClipboardRowsText(IReadOnlyList<Dictionary<string, string?>> exportRows)
@@ -883,6 +972,37 @@ internal sealed class MainForm : Form
                 }
 
                 var header = AccountingCsvFormatter.Headers[columnIndex];
+                row.TryGetValue(header, out var value);
+                builder.Append(SanitizeClipboardCell(value));
+            }
+
+            if (rowIndex < exportRows.Count - 1)
+            {
+                builder.AppendLine();
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static string BuildClipboardRowsText(
+        IReadOnlyList<Dictionary<string, string?>> exportRows,
+        IReadOnlyList<string> headers)
+    {
+        var builder = new StringBuilder();
+
+        for (var rowIndex = 0; rowIndex < exportRows.Count; rowIndex++)
+        {
+            var row = exportRows[rowIndex];
+
+            for (var columnIndex = 0; columnIndex < headers.Count; columnIndex++)
+            {
+                if (columnIndex > 0)
+                {
+                    builder.Append('\t');
+                }
+
+                var header = headers[columnIndex];
                 row.TryGetValue(header, out var value);
                 builder.Append(SanitizeClipboardCell(value));
             }
@@ -935,33 +1055,53 @@ internal sealed class MainForm : Form
         return false;
     }
 
-    private static string BuildClipboardInstructionMessage()
+    private static string BuildClipboardInstructionMessage(string issuerAccountLabel, string summaryLine)
     {
         return "The information has been copied to the clipboard." +
                Environment.NewLine +
                Environment.NewLine +
-               "Open Sage 100 Contractor screen 4-7-7 (Import Credit Card Transactions), select card issuer account 21010 - Bill Spend & Expense, and paste into the first cell.";
+               summaryLine +
+               Environment.NewLine +
+               Environment.NewLine +
+               "1. Open Sage 100 Contractor screen 4-7-7 (Import Credit Card Transactions)" +
+               Environment.NewLine +
+               $"2. Select card issuer account {issuerAccountLabel}" +
+               Environment.NewLine +
+               "3. Paste into the first cell";
     }
 
-    private static string BuildClipboardUnavailableMessage()
+    private static string BuildClipboardUnavailableMessage(string issuerAccountLabel, string summaryLine)
     {
         return "The CSV export was saved, but the information could not be copied to the clipboard automatically." +
                Environment.NewLine +
                Environment.NewLine +
-               "Open Sage 100 Contractor screen 4-7-7 (Import Credit Card Transactions), select card issuer account 21010 - Bill Spend & Expense, then click Copy Again and paste into the first cell.";
+               summaryLine +
+               Environment.NewLine +
+               Environment.NewLine +
+               "1. Open Sage 100 Contractor screen 4-7-7 (Import Credit Card Transactions)" +
+               Environment.NewLine +
+               $"2. Select card issuer account {issuerAccountLabel}" +
+               Environment.NewLine +
+               "3. Paste into the first cell";
     }
 
-    private void ShowNoExportableTransactionsDialog()
+    private void ShowNoExportableItemsDialog(string itemLabel)
     {
         MessageBox.Show(
             this,
-            "No exportable transactions were returned, so nothing was copied to the clipboard.",
-            "No transactions to export",
+            $"No exportable {itemLabel} were returned, so nothing was copied to the clipboard.",
+            $"No {itemLabel} to export",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
     }
 
-    private void ShowClipboardAndCompletionDialog(string clipboardText, string completionMessage, bool copiedToClipboard)
+    private void ShowClipboardAndCompletionDialog(
+        string clipboardText,
+        string completionMessage,
+        bool copiedToClipboard,
+        string issuerAccountLabel,
+        string summaryLine,
+        Func<Task<TagOperationResult>>? tagAction = null)
     {
         using var dialog = new Form
         {
@@ -981,12 +1121,22 @@ internal sealed class MainForm : Form
             Location = new Point(18, 18),
             Size = new Size(664, 176)
         };
+        messageLabel.UseMnemonic = false;
 
         var copyAgainButton = new Button
         {
             Text = "Copy Again",
             Size = new Size(102, 32),
             Location = new Point(480, 220)
+        };
+
+        var tagButton = new Button
+        {
+            Text = "Add Synced Tag",
+            Size = new Size(130, 32),
+            Location = new Point(340, 220),
+            Visible = false,
+            Enabled = false
         };
 
         var backButton = new Button
@@ -1011,9 +1161,13 @@ internal sealed class MainForm : Form
         {
             showingSummary = false;
             dialog.Text = "Sage Import Instructions";
-            messageLabel.Text = copiedToClipboard ? BuildClipboardInstructionMessage() : BuildClipboardUnavailableMessage();
+            messageLabel.Text = copiedToClipboard
+                ? BuildClipboardInstructionMessage(issuerAccountLabel, summaryLine)
+                : BuildClipboardUnavailableMessage(issuerAccountLabel, summaryLine);
             copyAgainButton.Visible = true;
             copyAgainButton.Enabled = true;
+            tagButton.Visible = false;
+            tagButton.Enabled = false;
             backButton.Visible = false;
             backButton.Enabled = false;
         }
@@ -1025,6 +1179,8 @@ internal sealed class MainForm : Form
             messageLabel.Text = completionMessage;
             copyAgainButton.Visible = false;
             copyAgainButton.Enabled = false;
+            tagButton.Visible = tagAction is not null;
+            tagButton.Enabled = tagAction is not null;
             backButton.Visible = true;
             backButton.Enabled = true;
         }
@@ -1055,6 +1211,46 @@ internal sealed class MainForm : Form
 
         backButton.Click += (_, _) => ShowInstructionState();
 
+        tagButton.Click += async (_, _) =>
+        {
+            if (tagAction is null)
+            {
+                return;
+            }
+
+            tagButton.Enabled = false;
+            backButton.Enabled = false;
+            doneButton.Enabled = false;
+            _statusLabel.Text = "Adding bse_synced tag...";
+            AppendLog("Adding bse_synced tag to exported transactions...");
+
+            try
+            {
+                var result = await tagAction();
+                if (result.AttemptedCount == 0)
+                {
+                    AppendLog("No transactions were available to tag.");
+                    _statusLabel.Text = "No transactions to tag.";
+                }
+                else
+                {
+                    AppendLog($"Tagging complete: {result.SuccessfulCount} succeeded, {result.FailedCount} failed.");
+                    _statusLabel.Text = $"Tagging complete ({result.SuccessfulCount} ok, {result.FailedCount} failed).";
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"Tagging failed. {ex.Message}");
+                _statusLabel.Text = "Tagging failed.";
+            }
+            finally
+            {
+                tagButton.Enabled = true;
+                backButton.Enabled = true;
+                doneButton.Enabled = true;
+            }
+        };
+
         doneButton.Click += (_, _) =>
         {
             if (!showingSummary)
@@ -1070,6 +1266,7 @@ internal sealed class MainForm : Form
         dialog.AcceptButton = doneButton;
         dialog.Controls.Add(messageLabel);
         dialog.Controls.Add(copyAgainButton);
+        dialog.Controls.Add(tagButton);
         dialog.Controls.Add(backButton);
         dialog.Controls.Add(doneButton);
 
@@ -1077,10 +1274,26 @@ internal sealed class MainForm : Form
         dialog.ShowDialog(this);
     }
 
-    private void TrimPreviousExportFiles(string exportsFolder)
+    private async Task EnsureReimbursementsBrowserOpenAsync()
+    {
+        if (_reimbursementBrowserForm is not null && !_reimbursementBrowserForm.IsDisposed)
+        {
+            return;
+        }
+
+        AppendLog("Reopening reimbursements page for manual sync.");
+        _statusLabel.Text = "Reopening reimbursements page for manual sync...";
+        _reimbursementBrowserForm = await ReimbursementWebExporter.OpenReimbursementsWindowAsync(this, AppendLog, message => _statusLabel.Text = message);
+        if (_reimbursementBrowserForm is not null)
+        {
+            _reimbursementBrowserForm.FormClosed += (_, _) => _reimbursementBrowserForm = null;
+        }
+    }
+
+    private void TrimPreviousExportFiles(string exportsFolder, string searchPattern, string label)
     {
         var existingFiles = new DirectoryInfo(exportsFolder)
-            .GetFiles("BSE-export-*.csv", SearchOption.TopDirectoryOnly)
+            .GetFiles(searchPattern, SearchOption.TopDirectoryOnly)
             .OrderByDescending(file => file.CreationTimeUtc)
             .ThenByDescending(file => file.LastWriteTimeUtc)
             .ThenByDescending(file => file.Name, StringComparer.OrdinalIgnoreCase)
@@ -1088,13 +1301,13 @@ internal sealed class MainForm : Form
 
         if (existingFiles.Count == 0)
         {
-            AppendLog("No previous export files were found.");
+            AppendLog($"No previous {label} file(s) were found.");
             return;
         }
 
         if (existingFiles.Count <= 4)
         {
-            AppendLog($"Found {existingFiles.Count} previous export file(s). Keeping them as backups.");
+            AppendLog($"Found {existingFiles.Count} previous {label} file(s). Keeping them as backups.");
             return;
         }
 
@@ -1116,7 +1329,7 @@ internal sealed class MainForm : Form
             }
         }
 
-        AppendLog($"Found {existingFiles.Count} previous export file(s). Kept the newest 4 backup file(s), deleted {deletedCount}, and left {failedCount} undeleted because they were unavailable.");
+        AppendLog($"Found {existingFiles.Count} previous {label} file(s). Kept the newest 4 backup file(s), deleted {deletedCount}, and left {failedCount} undeleted because they were unavailable.");
     }
 
     private void AppendLog(string message)

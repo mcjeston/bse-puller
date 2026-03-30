@@ -6,7 +6,7 @@ internal static class RawCsvWriter
 {
     public static void Write(string filePath, IReadOnlyList<Dictionary<string, string?>> rows)
     {
-        var headers = CollectHeaders(rows);
+        var headers = CollectHeadersForExport(rows);
         Write(filePath, headers, rows);
     }
 
@@ -30,7 +30,7 @@ internal static class RawCsvWriter
         File.WriteAllText(filePath, builder.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
     }
 
-    private static List<string> CollectHeaders(IReadOnlyList<Dictionary<string, string?>> rows)
+    public static List<string> CollectHeadersForExport(IReadOnlyList<Dictionary<string, string?>> rows)
     {
         var headers = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

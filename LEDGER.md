@@ -4,14 +4,18 @@ This file is a plain-English reference for how BSE Puller is built, installed, u
 
 ## Latest Release Reference
 
-- Release date: 2026-03-26
-- Tag: `v2026.03.26.1`
-- Release URL: `https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.26.1`
+- Release date: 2026-03-30
+- Tag: `v2026.03.30.1`
+- Release URL: `https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.30.1`
 - Included changes:
-  - GitHub update checks (daily startup for installed copies + manual button)
-  - Update installer download/launch flow
-  - Installer token reuse for update installs
-  - Empty pulls no longer save header-only CSV files and no longer trim previous exports
+  - Pull Reimbursements button is disabled (Coming Soon) while the reimbursement flow is rebuilt
+
+## Current Working Snapshot (Unreleased)
+
+- Snapshot date: 2026-03-30
+- Snapshot name: `build-2026-03-30-reimbursements-reset`
+- Included changes:
+  - Reimbursements flow is paused (Coming Soon) while a new export approach is planned
 
 ## What This Program Does
 
@@ -26,12 +30,16 @@ BSE Puller is a Windows desktop app that connects to BILL Spend and Expense, pul
   - Handles pull, open exports, update checks, reset API key, and uninstall actions.
 - `BseClient.cs`
   - Calls the BILL API and collects transaction data.
+- `ReimbursementWebExporter.cs`
+  - Opens the reimbursement page in a browser window and captures CSV downloads.
 - `UpdateService.cs`
   - Checks GitHub latest release and downloads installer updates.
 - `AccountingCsvFormatter.cs`
   - Converts BILL transactions into the accounting CSV columns.
 - `RawCsvWriter.cs`
   - Writes the final CSV file.
+- `CsvUtilities.cs`
+  - Parses CSV rows for clipboard output.
 - `BseSettings.cs`
   - Controls local folders, saved API token location, and install-related paths.
 - `Assets\favicon.ico`
@@ -125,12 +133,17 @@ Other buttons:
 
 - `Previous Exports`
   - Opens the folder that contains earlier CSV exports.
-- `Check for Updates`
-  - Runs an immediate GitHub release check and offers install when a newer version exists.
-- `Reset API Key`
-  - Deletes the saved BILL API token for the current Windows user.
-- `Uninstall`
-  - Removes the installed app, Start menu shortcut, saved settings, and local export folder for that user.
+- The top-right settings gear includes:
+  - `Check for Updates`
+    - Runs an immediate GitHub release check and offers install when a newer version exists.
+  - `Reset API Key`
+    - Deletes the saved BILL API token for the current Windows user.
+  - `Uninstall`
+    - Removes the installed app, Start menu shortcut, saved settings, and local export folder for that user.
+
+Reimbursement flow:
+
+- The Pull Reimbursements button is disabled and labeled Coming Soon.
 
 CSV export folder:
 
@@ -154,7 +167,7 @@ Installed copies automatically check for updates at startup once every 24 hours.
 
 When a newer release exists, the app can download `BsePullerSetup.exe` from GitHub and launch it.
 
-Users can also click `Check for Updates` in the app for an immediate manual check.
+Users can also click `Check for Updates` in the settings gear menu for an immediate manual check.
 
 To ship a new version:
 

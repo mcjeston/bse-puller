@@ -32,6 +32,13 @@ internal static class AccountingCsvFormatter
 
     public static IReadOnlyList<Dictionary<string, string?>> BuildRows(IReadOnlyList<Dictionary<string, string?>> sourceRows)
     {
+        return BuildRows(sourceRows, "1 - Bill Spend & Expense");
+    }
+
+    public static IReadOnlyList<Dictionary<string, string?>> BuildRows(
+        IReadOnlyList<Dictionary<string, string?>> sourceRows,
+        string creditCardLabel)
+    {
         var formattedRows = new List<Dictionary<string, string?>>(sourceRows.Count);
 
         foreach (var sourceRow in sourceRows)
@@ -39,12 +46,18 @@ internal static class AccountingCsvFormatter
             var row = CreateEmptyRow();
 
             var notesSource = GetValue(sourceRow, "Notes");
-            row["* Transaction#"] = NormalizeTransactionNumber(GetValue(sourceRow, "updatedTime"));
+            row["* Transaction#"] = NormalizeTransactionNumber(GetFirstValue(sourceRow, "updatedTime", "submittedTime", "occurredTime", "occurredDate"));
             row["* Description"] = BuildDescription(GetValue(sourceRow, "userName"), notesSource);
             row["* Payee"] = GetValue(sourceRow, "merchantName");
             row["Charge Amount"] = NormalizeAmount(GetValue(sourceRow, "amount"));
             row["Credit Amount"] = string.Empty;
-            row["* Posted Date"] = FormatShortDate(GetValue(sourceRow, "authorizedTime"));
+            var postedDate = FormatShortDate(GetFirstValue(sourceRow, "authorizedTime", "occurredTime", "occurredDate", "submittedTime"));
+            if (string.IsNullOrWhiteSpace(postedDate))
+            {
+                postedDate = FormatShortDate(GetValue(sourceRow, "Cleared Time in Statement"));
+            }
+
+            row["* Posted Date"] = postedDate;
             row["Notes"] = string.Empty;
             row["* Account"] = GetValue(sourceRow, "Sage General Ledger Account");
             row["Subaccount"] = GetValue(sourceRow, "Sage Vehicle and Equipment List");
@@ -58,7 +71,7 @@ internal static class AccountingCsvFormatter
 
             if (HasAnyNonCreditCardValue(row))
             {
-                row["* Credit Card"] = "1 - Bill Spend & Expense";
+                row["* Credit Card"] = creditCardLabel;
                 row["Include"] = "Include";
             }
 
@@ -82,6 +95,20 @@ internal static class AccountingCsvFormatter
     private static string? GetValue(IReadOnlyDictionary<string, string?> row, string key)
     {
         return row.TryGetValue(key, out var value) ? value?.Trim() : null;
+    }
+
+    private static string? GetFirstValue(IReadOnlyDictionary<string, string?> row, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = GetValue(row, key);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
     }
 
     private static string NormalizeTransactionNumber(string? value)
