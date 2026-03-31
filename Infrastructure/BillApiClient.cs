@@ -3,7 +3,9 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
-namespace BsePuller;
+using BsePuller.Modules.Settings;
+
+namespace BsePuller.Infrastructure;
 
 internal sealed record TransactionPullResult(
     IReadOnlyList<Dictionary<string, string?>> Rows,
@@ -27,13 +29,13 @@ internal sealed record TagOperationResult(
     int SuccessfulCount,
     int FailedCount);
 
-internal sealed class BseClient : IDisposable
+internal sealed class BillApiClient : IDisposable
 {
     private readonly HttpClient _httpClient;
     private const int MaxPages = 200;
     private const string SyncedTagName = "bse_synced";
 
-    public BseClient()
+    public BillApiClient()
     {
         _httpClient = new HttpClient
         {
@@ -57,7 +59,6 @@ internal sealed class BseClient : IDisposable
         var skippedAccountingIntegration = 0;
         var skippedUnapprovedAdmin = 0;
         var skippedDeclined = 0;
-        var skippedMissingFulfillmentOrBatch = 0;
         var skippedDuplicates = 0;
         string? pageToken = null;
         var pageNumber = 0;
@@ -113,27 +114,6 @@ internal sealed class BseClient : IDisposable
                 var row = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
                 BuildRowFromPayload(transaction, row);
 
-                var fulfillmentTypeValue =
-                    GetObjectString(transaction, "fulfillmentType") ??
-                    GetObjectString(transaction, "fulfillment", "type") ??
-                    GetObjectString(transaction, "fulfillment_type");
-                var batchIdValue =
-                    GetObjectString(transaction, "batchId") ??
-                    GetObjectString(transaction, "batch", "id") ??
-                    GetObjectString(transaction, "batch_id");
-
-                var hasFulfillmentType =
-                    IsMeaningfulValue(fulfillmentTypeValue) ||
-                    HasNonEmptyField(row, "fulfillmentType", "fulfillment.type", "fulfillment_type");
-                var hasBatchId =
-                    IsMeaningfulValue(batchIdValue) ||
-                    HasNonEmptyField(row, "batchId", "batch.id", "batch_id");
-                if (!hasFulfillmentType || !hasBatchId)
-                {
-                    skippedMissingFulfillmentOrBatch++;
-                    continue;
-                }
-
                 var mergeResult = MergeGeneralLedgerAccountColumns(row, id);
 
                 if (!string.IsNullOrWhiteSpace(id))
@@ -185,11 +165,6 @@ internal sealed class BseClient : IDisposable
         if (skippedDeclined > 0)
         {
             progress?.Report($"Skipped {skippedDeclined} declined transaction(s).");
-        }
-
-        if (skippedMissingFulfillmentOrBatch > 0)
-        {
-            progress?.Report($"Skipped {skippedMissingFulfillmentOrBatch} transaction(s) missing fulfillmentType or batchId.");
         }
 
         if (skippedDuplicates > 0)
@@ -976,7 +951,7 @@ internal sealed class BseClient : IDisposable
         }
     }
 
-    private static bool HasAccountingIntegrationTransactions(JsonElement transaction)
+    internal static bool HasAccountingIntegrationTransactions(JsonElement transaction)
     {
         if (transaction.ValueKind != JsonValueKind.Object)
         {
@@ -998,7 +973,7 @@ internal sealed class BseClient : IDisposable
         };
     }
 
-    private static bool HasApprovedAdminReviewer(JsonElement transaction)
+    internal static bool HasApprovedAdminReviewer(JsonElement transaction)
     {
         if (transaction.ValueKind != JsonValueKind.Object ||
             !transaction.TryGetProperty("reviewers", out var reviewers) ||
@@ -1027,7 +1002,7 @@ internal sealed class BseClient : IDisposable
         return false;
     }
 
-    private static bool IsDeclined(JsonElement transaction)
+    internal static bool IsDeclined(JsonElement transaction)
     {
         if (transaction.ValueKind != JsonValueKind.Object)
         {
@@ -1036,6 +1011,28 @@ internal sealed class BseClient : IDisposable
 
         var transactionType = GetObjectString(transaction, "transactionType");
         return string.Equals(transactionType, "DECLINE", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static int CountDuplicateTransactionIds(IEnumerable<JsonElement> transactions)
+    {
+        var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var duplicates = 0;
+
+        foreach (var transaction in transactions)
+        {
+            var id = GetObjectString(transaction, "id");
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            if (!seenIds.Add(id))
+            {
+                duplicates++;
+            }
+        }
+
+        return duplicates;
     }
 
     private static bool IsReimbursementRetired(JsonElement reimbursement)
@@ -1390,65 +1387,6 @@ internal sealed class BseClient : IDisposable
     private static string? GetRowValue(IDictionary<string, string?> row, string key)
     {
         return row.TryGetValue(key, out var value) ? value : null;
-    }
-
-    private static bool HasNonEmptyField(IReadOnlyDictionary<string, string?> row, params string[] keys)
-    {
-        foreach (var (key, value) in row)
-        {
-            foreach (var candidate in keys)
-            {
-                if (!IsKeyMatch(key, candidate))
-                {
-                    continue;
-                }
-
-                if (IsMeaningfulValue(value))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsKeyMatch(string key, string candidate)
-    {
-        if (key.Equals(candidate, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        var prefix = candidate + ".";
-        if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        var suffix = "." + candidate;
-        return key.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsMeaningfulValue(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        var trimmed = value.Trim();
-        if (string.Equals(trimmed, "null", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (string.Equals(trimmed, "[]", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        return !string.Equals(trimmed, "{}", StringComparison.Ordinal);
     }
 
     private static void CollectGeneralLedgerValues(

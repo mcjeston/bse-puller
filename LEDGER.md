@@ -1,21 +1,23 @@
-# BSE Puller Ledger
+﻿# BSE Puller Ledger
 
 This file is a plain-English reference for how BSE Puller is built, installed, updated, and used.
 
 ## Latest Release Reference
 
-- Release date: 2026-03-30
-- Tag: `v2026.03.30.1`
-- Release URL: `https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.30.1`
+- Release date: 2026-03-31
+- Tag: `v2026.03.31.1`
+- Release URL: `https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.31.1`
 - Included changes:
-  - Pull Reimbursements button is disabled (Coming Soon) while the reimbursement flow is rebuilt
+  - Project reorganized into explicit modules (Transactions, Reimbursements, Exports, Settings)
+  - Removed fulfillmentType/batchId filters from transaction pulls
+  - Added "Download Log File" option (keeps newest 20 logs and opens the Logs folder)
 
 ## Current Working Snapshot (Unreleased)
 
-- Snapshot date: 2026-03-30
-- Snapshot name: `build-2026-03-30-reimbursements-reset`
+- Snapshot date: 2026-03-31
+- Snapshot name: `none`
 - Included changes:
-  - Reimbursements flow is paused (Coming Soon) while a new export approach is planned
+  - No unreleased changes after v2026.03.31.1
 
 ## What This Program Does
 
@@ -26,22 +28,31 @@ BSE Puller is a Windows desktop app that connects to BILL Spend and Expense, pul
 - `Program.cs`
   - Starts the Windows desktop app.
 - `MainForm.cs`
-  - Builds the app window and the buttons the user clicks.
-  - Handles pull, open exports, update checks, reset API key, and uninstall actions.
-- `BseClient.cs`
+  - Builds the app window and delegates actions to modules.
+- `Infrastructure\BillApiClient.cs`
   - Calls the BILL API and collects transaction data.
-- `ReimbursementWebExporter.cs`
+- `Modules\Transactions\TransactionsModule.cs`
+  - Orchestrates Pull Transactions, CSV export, and clipboard dialog flow.
+- `Modules\Transactions\TransactionsService.cs`
+  - Thin service wrapper over the API client.
+- `Modules\Reimbursements\ReimbursementsModule.cs`
+  - Disabled (Coming Soon) reimbursement flow placeholder.
+- `Modules\Reimbursements\ReimbursementWebExporter.cs`
   - Opens the reimbursement page in a browser window and captures CSV downloads.
-- `UpdateService.cs`
-  - Checks GitHub latest release and downloads installer updates.
-- `AccountingCsvFormatter.cs`
+- `Modules\Exports\AccountingCsvFormatter.cs`
   - Converts BILL transactions into the accounting CSV columns.
-- `RawCsvWriter.cs`
+- `Modules\Exports\RawCsvWriter.cs`
   - Writes the final CSV file.
-- `CsvUtilities.cs`
+- `Modules\Exports\CsvUtilities.cs`
   - Parses CSV rows for clipboard output.
-- `BseSettings.cs`
+- `Modules\Exports\ExportsModule.cs`
+  - Manages export folder access and backup retention.
+- `Modules\Settings\BseSettings.cs`
   - Controls local folders, saved API token location, and install-related paths.
+- `Modules\Settings\UpdateService.cs`
+  - Checks GitHub latest release and downloads installer updates.
+- `Modules\Settings\SettingsModule.cs`
+  - Handles updates, API key reset, uninstall, and log downloads.
 - `Assets\favicon.ico`
   - The icon used for the app window and executable.
 - `installer\Build-Installer.ps1`
@@ -138,6 +149,8 @@ Other buttons:
     - Runs an immediate GitHub release check and offers install when a newer version exists.
   - `Reset API Key`
     - Deletes the saved BILL API token for the current Windows user.
+  - `Download Log File`
+    - Saves a text log in `%LocalAppData%\BsePuller\Logs`, keeps the newest 20, and opens the folder.
   - `Uninstall`
     - Removes the installed app, Start menu shortcut, saved settings, and local export folder for that user.
 

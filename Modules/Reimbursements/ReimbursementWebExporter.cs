@@ -2,7 +2,9 @@ using System.Diagnostics;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
-namespace BsePuller;
+using BsePuller.Modules.Settings;
+
+namespace BsePuller.Modules.Reimbursements;
 
 internal sealed record ReimbursementWebExportResult(bool Success, string? FilePath, string? ErrorMessage, Form? BrowserForm);
 

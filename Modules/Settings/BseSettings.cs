@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace BsePuller;
+namespace BsePuller.Modules.Settings;
 
 internal static class BseSettings
 {
@@ -93,6 +93,11 @@ internal static class BseSettings
     public static string GetTempFolder()
     {
         return Path.Combine(GetUserSettingsFolder(), "Temp");
+    }
+
+    public static string GetLogFolder()
+    {
+        return Path.Combine(GetUserSettingsFolder(), "Logs");
     }
 
     public static void SaveApiToken(string apiToken)

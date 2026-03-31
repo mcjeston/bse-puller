@@ -2,7 +2,7 @@ using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text.Json;
 
-namespace BsePuller;
+namespace BsePuller.Modules.Settings;
 
 internal sealed record UpdateCheckResult(
     bool CheckedSuccessfully,

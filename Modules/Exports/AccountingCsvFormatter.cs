@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace BsePuller;
+namespace BsePuller.Modules.Exports;
 
 internal static class AccountingCsvFormatter
 {

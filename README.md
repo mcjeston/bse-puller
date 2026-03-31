@@ -1,8 +1,8 @@
 # BSE Puller
 
-[Download the latest installer](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.30.1/BsePullerSetup.exe)
+[Download the latest installer](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.31.1/BsePullerSetup.exe)
 
-[View the latest release](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.30.1)
+[View the latest release](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.31.1)
 
 Windows desktop app for pulling approved BILL Spend and Expense transactions into the accounting CSV layout used by the team.
 
@@ -31,6 +31,17 @@ See `LEDGER.md` for a plain-English reference on how the program is built, insta
   - Coming soon (button is disabled while the flow is reworked)
 - Checks for GitHub updates automatically once every 24 hours when running from an installed copy
 
+## Modules
+
+- Pull Transactions module
+  - Owns the BILL API pull, CSV export, and clipboard/import dialog flow.
+- Pull Reimbursements module (disabled)
+  - Placeholder module for the future reimbursement export flow.
+- Previous Exports module
+  - Owns exports folder access and backup retention.
+- Settings module
+  - Owns update checks, API key reset, uninstall, and log downloads.
+
 ## Installer and user settings
 
 - Installer file:
@@ -50,6 +61,7 @@ See `LEDGER.md` for a plain-English reference on how the program is built, insta
 - The top-right settings gear includes:
   - `Check for Updates`
   - `Reset API Key`
+  - `Download Log File` (saves a text log under `%LocalAppData%\BsePuller\Logs`, keeps the newest 20, and opens the folder)
   - `Uninstall`
 
 ## Build locally
