@@ -1,8 +1,8 @@
 # BSE Puller
 
-[Download the latest installer](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.31.1/BsePullerSetup.exe)
+[Download the latest installer](https://github.com/mcjeston/bse-puller/releases/download/v2026.03.31.2/BsePullerSetup.exe)
 
-[View the latest release](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.31.1)
+[View the latest release](https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.31.2)
 
 Windows desktop app for pulling approved BILL Spend and Expense transactions into the accounting CSV layout used by the team.
 

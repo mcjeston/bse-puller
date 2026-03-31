@@ -162,3 +162,12 @@ Save-UserSettings -apiToken $token
 Copy-AppFiles -sourceDir $sourceDir -installDir $installDir
 Create-StartMenuShortcut -installDir $installDir
 Show-Success -installDir $installDir
+try {
+    $exePath = Join-Path $installDir 'BsePuller.exe'
+    if (Test-Path $exePath) {
+        Start-Process -FilePath $exePath -WorkingDirectory $installDir
+    }
+}
+catch {
+    # If launching fails, do not block install completion.
+}

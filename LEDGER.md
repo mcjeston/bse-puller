@@ -5,19 +5,17 @@ This file is a plain-English reference for how BSE Puller is built, installed, u
 ## Latest Release Reference
 
 - Release date: 2026-03-31
-- Tag: `v2026.03.31.1`
-- Release URL: `https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.31.1`
+- Tag: `v2026.03.31.2`
+- Release URL: `https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.31.2`
 - Included changes:
-  - Project reorganized into explicit modules (Transactions, Reimbursements, Exports, Settings)
-  - Removed fulfillmentType/batchId filters from transaction pulls
-  - Added "Download Log File" option (keeps newest 20 logs and opens the Logs folder)
+  - Installer now auto-launches BSE Puller after a successful install/update
 
 ## Current Working Snapshot (Unreleased)
 
 - Snapshot date: 2026-03-31
 - Snapshot name: `none`
 - Included changes:
-  - No unreleased changes after v2026.03.31.1
+  - No unreleased changes after v2026.03.31.2
 
 ## What This Program Does
 
