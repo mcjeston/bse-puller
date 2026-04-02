@@ -4,18 +4,19 @@ This file is a plain-English reference for how BSE Puller is built, installed, u
 
 ## Latest Release Reference
 
-- Release date: 2026-03-31
-- Tag: `v2026.03.31.2`
-- Release URL: `https://github.com/mcjeston/bse-puller/releases/tag/v2026.03.31.2`
+- Release date: 2026-04-02
+- Tag: `v2026.04.02.1`
+- Release URL: `https://github.com/mcjeston/bse-puller/releases/tag/v2026.04.02.1`
 - Included changes:
-  - Installer now auto-launches BSE Puller after a successful install/update
+  - CSV export now clears Job Cost Type when Job Cost Code is blank
+  - Build ignores backup folders to prevent duplicate compile entries
 
 ## Current Working Snapshot (Unreleased)
 
-- Snapshot date: 2026-03-31
+- Snapshot date: 2026-04-02
 - Snapshot name: `none`
 - Included changes:
-  - No unreleased changes after v2026.03.31.2
+  - No unreleased changes after v2026.04.02.1
 
 ## What This Program Does
 

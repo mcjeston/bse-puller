@@ -65,6 +65,10 @@ internal static class AccountingCsvFormatter
             row["Phase"] = string.Empty;
             row["Job Cost Code"] = GetValue(sourceRow, "2 - Sage Job Cost Codes");
             row["Job Cost Type"] = GetValue(sourceRow, "3 - Sage Cost Types");
+            if (string.IsNullOrWhiteSpace(row["Job Cost Code"]))
+            {
+                row["Job Cost Type"] = string.Empty;
+            }
             row["Equipment"] = string.Empty;
             row["Equipment Cost Code"] = string.Empty;
             row["Equipment Cost Type"] = string.Empty;

@@ -4,6 +4,7 @@
 .dotnet-cli/
 .nuget/
 NuGet/
+backups/
 obj/
 bin/
 snapshots/
